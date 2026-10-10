@@ -32,6 +32,37 @@ def index():
     stats = get_stats()
     return render_template('index.html', stats=stats)
 
+@app.route('/api/load-recent-download', methods=['POST'])
+def load_recent_download():
+    """Yerelde İndirilenler klasöründeki en güncel sipariş dosyasını otomatik yükler."""
+    downloads_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
+    if not os.path.exists(downloads_dir):
+        return jsonify({'status': 'error', 'message': 'İndirilenler klasörü bulunamadı'}), 404
+
+    recent_files = []
+    for f in os.listdir(downloads_dir):
+        if f.lower().endswith(('.xlsx', '.xls', '.csv')) and any(w in f.lower() for w in ['sipari', 'order']):
+            fp = os.path.join(downloads_dir, f)
+            recent_files.append((os.path.getmtime(fp), fp, f))
+
+    if not recent_files:
+        return jsonify({'status': 'error', 'message': 'İndirilenler klasöründe sipariş dosyası bulunamadı'}), 404
+
+    recent_files.sort(key=lambda x: x[0], reverse=True)
+    latest_fp = recent_files[0][1]
+    latest_name = recent_files[0][2]
+
+    try:
+        orders = parse_order_file(latest_fp)
+        return jsonify({
+            'status': 'success',
+            'filename': latest_name,
+            'order_count': len(orders),
+            'orders': orders
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Dosya işlenirken hata: {str(e)}'}), 500
+
 @app.route('/api/upload-orders', methods=['POST'])
 def upload_orders():
     if 'file' not in request.files:

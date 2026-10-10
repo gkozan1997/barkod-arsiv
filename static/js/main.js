@@ -137,6 +137,36 @@ function initExcelUpload() {
         }
     });
 
+        const recentBtn = document.getElementById('btnLoadRecentExcel');
+    if (recentBtn) {
+        recentBtn.addEventListener('click', async (e) => {
+            e.stopPropagation();
+            const orig = recentBtn.textContent;
+            recentBtn.textContent = 'Yükleniyor...';
+            try {
+                const response = await fetch('/api/load-recent-download', { method: 'POST' });
+                const res = await response.json();
+                if (res.status === 'success') {
+                    loadedOrders = res.orders || [];
+                    document.getElementById('loadedOrderCount').textContent = loadedOrders.length;
+                    renderOrderCards();
+                    const dropText = document.querySelector('.dropzone-text strong');
+                    if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Sipariş)`;
+                    if (loadedOrders.length > 0) selectOrder(0);
+                    playSuccessBeep();
+                } else {
+                    alert('Hata: ' + (res.message || 'Dosya okunamadı'));
+                    playWarningBuzzer();
+                }
+            } catch (err) {
+                alert('İndirilenler klasörüne doğrudan erişim yalnızca yerel programda (127.0.0.1:5004) çalışır. Bulutta dosya seç butonunu kullanınız.');
+                playWarningBuzzer();
+            } finally {
+                recentBtn.textContent = orig;
+            }
+        });
+    }
+
     fileInput.addEventListener('change', () => {
         if (fileInput.files && fileInput.files.length > 0) {
             handleFileUpload(fileInput.files[0]);
