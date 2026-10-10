@@ -183,7 +183,7 @@ function initExcelUpload() {
                     renderOrderCards();
                     const dropText = document.querySelector('.dropzone-text strong');
                     if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Paket)`;
-                    if (loadedOrders.length > 0) selectOrder(0);
+                    resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
                     playSuccessBeep();
                 } else {
                     alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
@@ -220,9 +220,7 @@ async function handleFileUpload(file) {
             if (counter) counter.textContent = loadedOrders.length;
             renderOrderCards();
             if (dropText) dropText.textContent = `Yüklendi: ${file.name} (${loadedOrders.length} Paket)`;
-            if (loadedOrders.length > 0) {
-                selectOrder(0);
-            }
+            resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
             playSuccessBeep();
         } else {
             alert('Hata: ' + (res.message || 'Dosya okunamadı'));
@@ -277,6 +275,43 @@ function setScanStep(step) {
     input.focus();
 }
 
+
+// --------------------------------------------------------------
+// BEKLEME DURUMUNA SIFIRLA (KOLİ BARKODU BEKLENİYOR MODU)
+// --------------------------------------------------------------
+function resetToWaitingState() {
+    activeOrderIndex = -1;
+    setScanStep(1);
+
+    const mBadge = document.getElementById('activeMarketplace');
+    if (mBadge) mBadge.textContent = 'Paket Bekleniyor';
+
+    const oTitle = document.getElementById('activeOrderTitle');
+    if (oTitle) oTitle.textContent = '📦 Kargo Barkodunu Okutun';
+
+    const cName = document.getElementById('activeCustomerName');
+    if (cName) cName.textContent = 'Kolideki kargo etiketini okutun, müşteri ve ürünler otomatik seçilsin.';
+
+    const progressEl = document.getElementById('orderProgressPercent');
+    if (progressEl) progressEl.textContent = '%0';
+
+    const banner = document.getElementById('orderCompleteBanner');
+    if (banner) banner.style.display = 'none';
+
+    const tbody = document.getElementById('activeOrderItemsBody');
+    if (tbody) {
+        tbody.innerHTML = '<tr><td colspan="4" class="text-center text-muted" style="padding: 30px;">📦 Kolideki kargo barkodunu okuttuğunuzda müşteri ve ürünler buraya gelecektir.</td></tr>';
+    }
+
+    renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+
+    const scanInput = document.getElementById('activeScanInput');
+    if (scanInput) {
+        scanInput.value = '';
+        scanInput.focus();
+    }
+}
+
 function initOrderWorkflow() {
     const filterInput = document.getElementById('orderFilterInput');
     if (filterInput) {
@@ -301,16 +336,18 @@ function initOrderWorkflow() {
     const resetBtn = document.getElementById('btnResetToStep1');
     if (resetBtn) {
         resetBtn.addEventListener('click', () => {
-            setScanStep(1);
+            resetToWaitingState();
+            const alertBox = document.getElementById('orderScanAlert');
+            showAlert(alertBox, 'info', 'Başa dönüldü: Lütfen koli kargo barkodunu okutun.');
         });
     }
 
     const nextBtn = document.getElementById('btnNextOrder');
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
-            setScanStep(1);
-            const banner = document.getElementById('orderCompleteBanner');
-            if (banner) banner.style.display = 'none';
+            resetToWaitingState();
+            const alertBox = document.getElementById('orderScanAlert');
+            showAlert(alertBox, 'info', 'Sıradaki koli için kargo barkodunu okutun.');
         });
     }
 
@@ -331,23 +368,45 @@ async function handleSmartScan(code) {
         return;
     }
 
-    // Kargo Barkodu Eşleşme Kontrolü
-    const matchedIdx = loadedOrders.findIndex(o => 
+    // 1. Kargo Barkodu Eşleşme Kontrolü
+    const cleanAlnum = cleanCode.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+
+    let matchedIdx = loadedOrders.findIndex(o => 
         (o.kargo_barkodu && o.kargo_barkodu.trim().toLowerCase() === cleanCode.toLowerCase()) ||
-        (o.siparis_no && o.siparis_no.trim().toLowerCase() === cleanCode.toLowerCase())
+        (o.siparis_no && o.siparis_no.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+        (o.paket_no && o.paket_no.trim().toLowerCase() === cleanCode.toLowerCase())
     );
+
+    if (matchedIdx === -1 && cleanAlnum) {
+        matchedIdx = loadedOrders.findIndex(o => {
+            const kbAlnum = (o.kargo_barkodu || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const spAlnum = (o.siparis_no || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            const pkAlnum = (o.paket_no || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            return (kbAlnum && kbAlnum === cleanAlnum) || 
+                   (spAlnum && spAlnum === cleanAlnum) || 
+                   (pkAlnum && pkAlnum === cleanAlnum);
+        });
+    }
+
+    if (matchedIdx === -1 && cleanCode.length >= 6) {
+        matchedIdx = loadedOrders.findIndex(o => {
+            const kb = (o.kargo_barkodu || '').trim().toLowerCase();
+            const sp = (o.siparis_no || '').trim().toLowerCase();
+            return (kb && (kb.endsWith(cleanCode.toLowerCase()) || cleanCode.toLowerCase().endsWith(kb))) ||
+                   (sp && (sp.endsWith(cleanCode.toLowerCase()) || cleanCode.toLowerCase().endsWith(sp)));
+        });
+    }
 
     if (scanStep === 1 || matchedIdx !== -1) {
         if (matchedIdx !== -1) {
             selectOrder(matchedIdx);
-            setScanStep(2);
             playSuccessBeep();
             const order = loadedOrders[matchedIdx];
-            showAlert(alertBox, 'success', `📦 PAKET AÇILDI: ${order.musteri_adi} | Kargo: ${order.kargo_barkodu || order.siparis_no} (${order.pazaryeri})`);
+            showAlert(alertBox, 'success', `📦 MÜŞTERİ SEÇİLDİ: ${order.musteri_adi} | Kargo: ${order.kargo_barkodu || order.siparis_no} (${order.pazaryeri}). Şimdi ürün seri numarasını okutun!`);
             return;
         } else {
             playWarningBuzzer();
-            showAlert(alertBox, 'error', `⚠️ Bu kargo barkodu listede bulunamadı: "${cleanCode}". Kolideki doğru barkodu okutun.`);
+            showAlert(alertBox, 'error', `⚠️ Bu kargo barkodu listede bulunamadı: "${cleanCode}". Kolideki doğru kargo barkodunu okutun.`);
             scanInput.value = '';
             scanInput.focus();
             return;
@@ -418,8 +477,8 @@ async function processProductSerialScan(barcode) {
             if (allDone) {
                 playSuccessBeep();
                 setTimeout(() => {
-                    showAlert(alertBox, 'success', `🎉 TEBRİKLER! Bu paketin tüm ürünleri tamamlandı. Sıradaki koli için KARGO BARKODU okutun.`);
-                    setScanStep(1);
+                    showAlert(alertBox, 'success', `🎉 TEBRİKLER! Bu paketin (${order.musteri_adi}) tüm ürünleri tamamlandı. Sıradaki koli için KARGO BARKODU okutun.`);
+                    resetToWaitingState();
                 }, 1200);
             } else {
                 scanInput.value = '';
@@ -482,6 +541,14 @@ function selectOrder(index) {
     const order = loadedOrders[index];
 
     renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+
+    // Seçilen müşteri kartını sol listede görünür yap
+    setTimeout(() => {
+        const selCard = document.querySelector('.order-card-item.selected');
+        if (selCard) {
+            selCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+    }, 50);
 
     const kargoBilgisi = order.kargo_firmasi ? ` (${order.kargo_firmasi})` : '';
     const mBadge = document.getElementById('activeMarketplace');
@@ -940,7 +1007,7 @@ window.loadRecentExcel = async function() {
             renderOrderCards();
             const dropText = document.querySelector('.dropzone-text strong');
             if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Paket)`;
-            if (loadedOrders.length > 0) selectOrder(0);
+            resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
             playSuccessBeep();
         } else {
             alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
@@ -963,3 +1030,5 @@ window.startCameraScanner = startCameraScanner;
 window.stopCameraScanner = stopCameraScanner;
 window.setScanStep = setScanStep;
 window.refreshDashboardStats = refreshDashboardStats;
+
+window.resetToWaitingState = resetToWaitingState;
