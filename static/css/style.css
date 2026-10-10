@@ -1048,3 +1048,100 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* 2 ADIMLI WORKFLOW STEPPER */
+.workflow-stepper {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 14px;
+    background: rgba(0, 0, 0, 0.35);
+    border: 1px solid var(--card-border);
+    padding: 10px 16px;
+    border-radius: var(--radius-md);
+}
+
+.step-chip {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 14px;
+    border-radius: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid transparent;
+    opacity: 0.55;
+    transition: all 0.25s ease;
+}
+
+.step-chip.active {
+    opacity: 1;
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.45);
+    box-shadow: 0 0 16px rgba(56, 189, 248, 0.2);
+}
+
+.step-chip.active-step2 {
+    opacity: 1;
+    background: rgba(16, 185, 129, 0.12);
+    border-color: rgba(16, 185, 129, 0.45);
+    box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);
+}
+
+.step-badge {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-family: 'Outfit', sans-serif;
+    font-size: 14px;
+    font-weight: 800;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.step-chip.active .step-badge {
+    background: #38BDF8;
+    color: #0F172A;
+}
+
+.step-chip.active-step2 .step-badge {
+    background: #10B981;
+    color: #0F172A;
+}
+
+.step-info {
+    display: flex;
+    flex-direction: column;
+}
+
+.step-info strong {
+    font-family: 'Outfit', sans-serif;
+    font-size: 13.5px;
+    color: #fff;
+}
+
+.step-info small {
+    font-size: 11px;
+    color: var(--text-muted);
+}
+
+.step-divider {
+    color: var(--text-muted);
+    font-size: 16px;
+    font-weight: bold;
+}
+
+.scan-large-input.step1-mode {
+    border-color: #38BDF8 !important;
+    box-shadow: 0 0 14px rgba(56, 189, 248, 0.25);
+    color: #38BDF8;
+}
+
+.scan-large-input.step2-mode {
+    border-color: #10B981 !important;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
+    color: #34D399;
+}

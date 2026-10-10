@@ -109,15 +109,34 @@
                                 </div>
                             </div>
 
-                            <!-- TARAMA GİRİŞİ -->
-                            <div class="scanner-input-box">
+                            <!-- 2 ADIMLI AKILLI DEPO TARAMA AKIŞI -->
+                            <div class="workflow-stepper">
+                                <div class="step-chip active" id="stepChip1">
+                                    <span class="step-badge">1</span>
+                                    <div class="step-info">
+                                        <strong>1. ADIM: Kargo Barkodu</strong>
+                                        <small>Müşteri & Koliyi Aç</small>
+                                    </div>
+                                </div>
+                                <div class="step-divider">➔</div>
+                                <div class="step-chip" id="stepChip2">
+                                    <span class="step-badge">2</span>
+                                    <div class="step-info">
+                                        <strong>2. ADIM: Ürün Seri No</strong>
+                                        <small>Ürünü Okut & Mühürle</small>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="scanner-input-box" id="scannerContainerBox">
                                 <label for="activeScanInput">
-                                    <span class="scan-label-title">🎯 Ürün Seri No / Barkodunu Okutun:</span>
-                                    <span class="scan-label-hint">Okuyucu otomatik algılar veya klavyeyle yazıp Enter'a basın</span>
+                                    <span class="scan-label-title" id="scanLabelTitle">📦 1. Adım: Kargo Barkodunu Okutun</span>
+                                    <span class="scan-label-hint" id="scanLabelHint">Kolideki kargo etiketini okutun, müşteri otomatik açılsın</span>
                                 </label>
                                 <div class="input-with-actions">
-                                    <input type="text" id="activeScanInput" class="scan-large-input" placeholder="Seri Numarası / Barkod Okutun..." autocomplete="off" disabled>
+                                    <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="Koli Kargo Barkodunu Okutun..." autocomplete="off">
                                     <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
+                                    <button class="btn-secondary btn-sm" id="btnResetToStep1" title="Kargo Barkodu okuma adımına dön">Başa Dön ↺</button>
                                 </div>
                                 <div class="scan-feedback-alert" id="orderScanAlert" style="display: none;"></div>
                             </div>

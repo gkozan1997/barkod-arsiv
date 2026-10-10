@@ -211,8 +211,52 @@ async function handleFileUpload(file) {
 }
 
 // ==========================================
-// SİPARİŞ LİSTESİ & EŞLEME AKIŞI
+// SİPARİŞ LİSTESİ & EŞLEME AKIŞI (2 ADIMLI MOD)
 // ==========================================
+// 2 ADIMLI AKILLI DEPO TARAMA AKIŞI
+// 1. Adım: Kargo Barkodu Okut -> Paketi & Müşteriyi Aç
+// 2. Adım: Ürünün Seri Numarasını / Barkodunu Okut -> Kaydet & Mühürle
+// ==========================================
+let scanStep = 1; // 1: Kargo Barkodu bekliyor, 2: Ürün Seri No bekliyor
+
+function setScanStep(step) {
+    scanStep = step;
+    const chip1 = document.getElementById('stepChip1');
+    const chip2 = document.getElementById('stepChip2');
+    const title = document.getElementById('scanLabelTitle');
+    const hint = document.getElementById('scanLabelHint');
+    const input = document.getElementById('activeScanInput');
+
+    if (!input) return;
+
+    if (step === 1) {
+        if (chip1) { chip1.className = 'step-chip active'; }
+        if (chip2) { chip2.className = 'step-chip'; }
+        if (title) {
+            title.innerHTML = '📦 1. Adım: Kargo Barkodunu Okutun';
+            title.style.color = '#38BDF8';
+        }
+        if (hint) { hint.textContent = 'Kolideki kargo etiketini okutun, müşteri ve ürünler otomatik açılsın'; }
+        input.className = 'scan-large-input step1-mode';
+        input.placeholder = '1. ADIM: Koli Kargo Barkodunu Okutun...';
+    } else {
+        if (chip1) { chip1.className = 'step-chip'; }
+        if (chip2) { chip2.className = 'step-chip active-step2'; }
+        const order = (activeOrderIndex !== -1 && loadedOrders[activeOrderIndex]) ? loadedOrders[activeOrderIndex] : null;
+        const musteriStr = order ? `(${order.musteri_adi})` : '';
+        if (title) {
+            title.innerHTML = `🎯 2. Adım: Ürün Seri No / Barkodunu Okutun ${musteriStr}`;
+            title.style.color = '#34D399';
+        }
+        if (hint) { hint.textContent = 'Pakete koyduğunuz cihazın seri numarasını (SN/IMEI) okutun'; }
+        input.className = 'scan-large-input step2-mode';
+        input.placeholder = '2. ADIM: Ürün Seri Numarası / Barkod Okutun...';
+    }
+    input.disabled = false;
+    input.value = '';
+    input.focus();
+}
+
 function initOrderWorkflow() {
     const filterInput = document.getElementById('orderFilterInput');
     if (filterInput) {
@@ -228,75 +272,164 @@ function initOrderWorkflow() {
                 e.preventDefault();
                 const code = scanInput.value.trim();
                 if (code) {
-                    processOrderScan(code);
+                    handleSmartScan(code);
                 }
             }
+        });
+    }
+
+    const resetBtn = document.getElementById('btnResetToStep1');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+            setScanStep(1);
         });
     }
 
     const nextBtn = document.getElementById('btnNextOrder');
     if (nextBtn) {
         nextBtn.addEventListener('click', () => {
-            // Tamamlanmamış ilk siparişi seç
-            const nextIdx = loadedOrders.findIndex(o => !o.tamamlandi);
-            if (nextIdx !== -1) {
-                selectOrder(nextIdx);
-            } else {
-                alert('Tebrikler! Yüklenen tüm siparişlerin barkodları kaydedildi.');
-            }
+            setScanStep(1);
+            const banner = document.getElementById('orderCompleteBanner');
+            if (banner) banner.style.display = 'none';
         });
     }
+
+    // Başlangıçta 1. Adıma odaklan
+    setScanStep(1);
 }
 
-function renderOrderCards(filterText = '') {
-    const container = document.getElementById('orderCardsContainer');
-    if (!container) return;
+// Akıllı Tarama Yöneticisi: 1. Adım ve 2. Adım kontrolü
+async function handleSmartScan(code) {
+    const cleanCode = code.trim();
+    const alertBox = document.getElementById('orderScanAlert');
+    const scanInput = document.getElementById('activeScanInput');
 
-    container.innerHTML = '';
+    if (!cleanCode) return;
+
     if (loadedOrders.length === 0) {
-        container.innerHTML = '<div class="empty-state">Henüz sipariş yüklenmedi.</div>';
+        playWarningBuzzer();
+        showAlert(alertBox, 'error', 'Henüz sipariş listesi yüklenmedi! Lütfen yukarıdan "İndirilenler'den Getir" butonuna tıklayın.');
+        scanInput.value = '';
         return;
     }
 
-    loadedOrders.forEach((order, idx) => {
-        if (filterText) {
-            const matchKargo = (order.kargo_barkodu || '').toLowerCase().includes(filterText);
-            const matchOrder = (order.siparis_no || '').toLowerCase().includes(filterText) || matchKargo;
-            const matchCustomer = (order.musteri_adi || '').toLowerCase().includes(filterText);
-            if (!matchOrder && !matchCustomer) return;
-        }
+    // 1. Kargo Barkodu Eşleşme Kontrolü (Listenin içinde bu kod kargo barkodu veya sipariş no mu?)
+    const matchedIdx = loadedOrders.findIndex(o => 
+        (o.kargo_barkodu && o.kargo_barkodu.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+        (o.siparis_no && o.siparis_no.trim().toLowerCase() === cleanCode.toLowerCase())
+    );
 
-        const isSelected = (idx === activeOrderIndex);
-        const card = document.createElement('div');
-        card.className = `order-card-item ${isSelected ? 'selected' : ''} ${order.tamamlandi ? 'completed' : ''}`;
-        const kargoGosterim = order.kargo_barkodu || order.siparis_no || 'Barkod Yok';
-        const kargoBilgi = order.kargo_firmasi ? ` • ${order.kargo_firmasi}` : '';
-        card.innerHTML = `
-            <div class="card-item-top">
-                <span class="card-order-no" style="font-size: 14px; color: #38BDF8;">🏷️ ${kargoGosterim}</span>
-                <span class="card-market-tag">${order.pazaryeri || 'Pazar'}${kargoBilgi}</span>
-            </div>
-            <div class="card-customer">${order.musteri_adi || 'Müşteri'}</div>
-            <div class="card-item-summary" style="display: flex; justify-content: space-between;">
-                <span>${order.urunler.length} Kalem Ürün</span>
-                <span style="font-size: 11px; color: var(--text-muted);">Sipariş: ${order.siparis_no || '-'}</span>
-                ${order.tamamlandi ? '<span>✅</span>' : ''}
-            </div>
-        `;
-        card.addEventListener('click', () => selectOrder(idx));
-        container.appendChild(card);
-    });
+    // EĞER 1. ADIMDAYSAYSAK VEYA OKUTULAN KOD BAŞKA BİR KARGO BARKODUYSA:
+    if (scanStep === 1 || matchedIdx !== -1) {
+        if (matchedIdx !== -1) {
+            selectOrder(matchedIdx);
+            setScanStep(2); // 2. Adıma (Ürün Seri No okutmaya) geç!
+            playSuccessBeep();
+            const order = loadedOrders[matchedIdx];
+            showAlert(alertBox, 'success', `📦 PAKET AÇILDI: ${order.musteri_adi} | Kargo: ${order.kargo_barkodu || order.siparis_no} (${order.pazaryeri})`);
+            return;
+        } else {
+            // 1. Adımda kargo barkodu bulunamadıysa
+            playWarningBuzzer();
+            showAlert(alertBox, 'error', `⚠️ Bu kargo barkodu listede bulunamadı: "${cleanCode}". Lütfen koli üzerindeki doğru kargo barkodunu okutun.`);
+            scanInput.value = '';
+            scanInput.focus();
+            return;
+        }
+    }
+
+    // EĞER 2. ADIMDAYSAYSAK (Ürün Seri No Okutuluyor):
+    if (scanStep === 2) {
+        if (activeOrderIndex === -1) {
+            setScanStep(1);
+            return;
+        }
+        await processProductSerialScan(cleanCode);
+    }
 }
+
+async function processProductSerialScan(barcode) {
+    if (activeOrderIndex === -1) return;
+    const order = loadedOrders[activeOrderIndex];
+    const alertBox = document.getElementById('orderScanAlert');
+    const scanInput = document.getElementById('activeScanInput');
+
+    const pendingItem = order.urunler.find(i => !i.tamamlandi);
+    if (!pendingItem) {
+        showAlert(alertBox, 'duplicate', 'Bu paketteki tüm ürünler zaten tamamlanmış!');
+        scanInput.value = '';
+        setScanStep(1); // Bir sonraki koliyi beklemeye geç
+        return;
+    }
+
+    try {
+        const response = await fetch('/api/record', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                kargo_barkodu: order.kargo_barkodu || '',
+                siparis_no: order.siparis_no || '',
+                musteri_adi: order.musteri_adi,
+                urun_adi: pendingItem.urun_adi,
+                barkod_seri_no: barcode,
+                pazaryeri: order.pazaryeri,
+                okutma_yontemi: 'El Terminali / Kargo Eşleme'
+            })
+        });
+        const res = await response.json();
+
+        if (res.status === 'success') {
+            if (!pendingItem.seri_nolar) pendingItem.seri_nolar = [];
+            pendingItem.seri_nolar.push(barcode);
+            pendingItem.okunan_adet = (pendingItem.okunan_adet || 0) + 1;
+            pendingItem.tamamlandi = true;
+            pendingItem.okunan_adet = pendingItem.adet;
+
+            renderActiveOrderItems();
+            updateOrderProgress();
+            renderOrderCards();
+            updateHeaderStats(res.stats);
+
+            const allDone = order.urunler.every(i => i.tamamlandi);
+
+            if (res.is_duplicate) {
+                playWarningBuzzer();
+                showAlert(alertBox, 'duplicate', `⚠️ MÜKERRER UYARISI: Bu Seri No (${barcode}) daha önce kaydedilmiş! Yine de arşive mühürlendi.`);
+            } else {
+                playSuccessBeep();
+                showAlert(alertBox, 'success', `✅ ÜRÜN MÜHÜRLENDİ: ${pendingItem.urun_adi.substring(0, 35)}... (Seri No: ${barcode})`);
+            }
+
+            if (allDone) {
+                // PAKET TAMAMLANDI! 1. Adıma otomatik dön
+                playSuccessBeep();
+                setTimeout(() => {
+                    showAlert(alertBox, 'success', `🎉 TEBRİKLER! Bu paketin tüm ürünleri tamamlandı. Sıradaki koli için KARGO BARKODU okutun.`);
+                    setScanStep(1); // Sıradaki koliyi beklemeye geç!
+                }, 1200);
+            } else {
+                // Pakette henüz başka kalem varsa yine 2. adımda kal
+                scanInput.value = '';
+                scanInput.focus();
+            }
+        } else {
+            playWarningBuzzer();
+            showAlert(alertBox, 'error', 'Hata: ' + (res.message || 'Kaydedilemedi'));
+        }
+    } catch (err) {
+        playWarningBuzzer();
+        showAlert(alertBox, 'error', 'Bağlantı hatası: ' + err.message);
+    }
+}
+
 
 function selectOrder(index) {
     if (index < 0 || index >= loadedOrders.length) return;
     activeOrderIndex = index;
     const order = loadedOrders[index];
 
-    // Sol listeyi güncelle
     renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
 
-    // Sağ paneli doldur
     const kargoBilgisi = order.kargo_firmasi ? ` (${order.kargo_firmasi})` : '';
     document.getElementById('activeMarketplace').textContent = (order.pazaryeri || 'Pazaryeri') + kargoBilgisi;
     document.getElementById('activeOrderTitle').textContent = `🏷️ Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
@@ -305,13 +438,8 @@ function selectOrder(index) {
     renderActiveOrderItems();
     updateOrderProgress();
 
-    // Scan input'u etkinleştir ve odakla
-    const scanInput = document.getElementById('activeScanInput');
-    if (scanInput) {
-        scanInput.disabled = false;
-        scanInput.value = '';
-        scanInput.focus();
-    }
+    // 2. Adıma (Ürün Seri No okutma) geçir
+    setScanStep(2);
 
     const alertBox = document.getElementById('orderScanAlert');
     if (alertBox) alertBox.style.display = 'none';
@@ -363,86 +491,6 @@ function updateOrderProgress() {
     }
 }
 
-async function processOrderScan(barcode) {
-    // 1. Akıllı Kargo Barkodu Tespiti: Okutulan kod mevcut paketlerden birinin kargo barkodu ise o paketi aç!
-    const matchedPkgIdx = loadedOrders.findIndex(o => (o.kargo_barkodu && o.kargo_barkodu.trim() === barcode.trim()) || (o.siparis_no && o.siparis_no.trim() === barcode.trim()));
-    if (matchedPkgIdx !== -1 && matchedPkgIdx !== activeOrderIndex) {
-        selectOrder(matchedPkgIdx);
-        playSuccessBeep();
-        const scanInput = document.getElementById('activeScanInput');
-        if (scanInput) { scanInput.value = ''; scanInput.focus(); }
-        return;
-    }
-
-    if (activeOrderIndex === -1) {
-        alert('Lütfen önce bir paket seçin veya kargo barkodunu okutun!');
-        return;
-    }
-    const order = loadedOrders[activeOrderIndex];
-    const alertBox = document.getElementById('orderScanAlert');
-    const scanInput = document.getElementById('activeScanInput');
-
-    // Henüz tamamlanmamış ilk kalemi bul
-    const pendingItem = order.urunler.find(i => !i.tamamlandi);
-    if (!pendingItem) {
-        showAlert(alertBox, 'duplicate', 'Bu siparişteki tüm ürünler zaten tamamlandı!');
-        scanInput.value = '';
-        return;
-    }
-
-    // Backend'e kaydet (Çift katmanlı koruma + mükerrer kontrolü)
-    try {
-        const response = await fetch('/api/record', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                kargo_barkodu: order.kargo_barkodu || '',
-                siparis_no: order.siparis_no || '',
-                musteri_adi: order.musteri_adi,
-                urun_adi: pendingItem.urun_adi,
-                barkod_seri_no: barcode,
-                pazaryeri: order.pazaryeri,
-                okutma_yontemi: 'El Terminali / Eşleme'
-            })
-        });
-        const res = await response.json();
-
-        if (res.status === 'success') {
-            if (!pendingItem.seri_nolar) pendingItem.seri_nolar = [];
-            pendingItem.seri_nolar.push(barcode);
-            pendingItem.okunan_adet = (pendingItem.okunan_adet || 0) + 1;
-
-            // Tek okutma kuralı: Tek bir okutmada o kalemin tüm adetleri onaylanır
-            pendingItem.tamamlandi = true;
-            pendingItem.okunan_adet = pendingItem.adet;
-
-            renderActiveOrderItems();
-            updateOrderProgress();
-            renderOrderCards();
-
-            updateHeaderStats(res.stats);
-
-            if (res.is_duplicate) {
-                playWarningBuzzer();
-                showAlert(alertBox, 'duplicate', `⚠️ UYARI: Bu Seri No (${barcode}) daha önce kaydedilmiş! (Sipariş: ${res.duplicate_info.siparis_no} - ${res.duplicate_info.kayit_tarihi}). Yine de arşivlendi.`);
-            } else {
-                playSuccessBeep();
-                showAlert(alertBox, 'success', `✅ Seri No Kaydedildi ve Mühürlendi: ${barcode}`);
-            }
-
-            scanInput.value = '';
-            scanInput.focus();
-        } else {
-            playWarningBuzzer();
-            showAlert(alertBox, 'error', 'Hata: ' + (res.message || 'Kaydedilemedi'));
-        }
-    } catch (err) {
-        playWarningBuzzer();
-        showAlert(alertBox, 'error', 'Bağlantı hatası: ' + err.message);
-    }
-}
-
-// ==========================================
 // HIZLI SERBEST KAYIT
 // ==========================================
 function initFreeScan() {
