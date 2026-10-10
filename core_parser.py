@@ -19,10 +19,6 @@ def find_column_index(headers, possible_names):
     return None
 
 def parse_order_file(file_path):
-    """
-    Excel (.xlsx, .xls) veya CSV dosyasından siparişleri akıllıca okur.
-    Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb. formatları dinamik algılar.
-    """
     ext = os.path.splitext(file_path)[1].lower()
     rows = []
 
@@ -38,16 +34,29 @@ def parse_order_file(file_path):
             for row in reader:
                 if any(row):
                     rows.append(row)
+    elif ext == '.xls':
+        try:
+            import xlrd
+            wb = xlrd.open_workbook(file_path)
+            sheet = wb.sheet_by_index(0)
+            for r in range(sheet.nrows):
+                rows.append([sheet.cell_value(r, c) for c in range(sheet.ncols)])
+        except Exception as e:
+            print(f"XLS okuma hatası: {e}")
     else:
-        # Desteklenmeyen format için pandas deneyelim
-        import pandas as pd
-        df = pd.read_excel(file_path)
-        rows = [df.columns.tolist()] + df.values.tolist()
+        # Son çare openpyxl dene
+        try:
+            wb = openpyxl.load_workbook(file_path, data_only=True)
+            ws = wb.active
+            for row in ws.iter_rows(values_only=True):
+                if any(cell is not None for cell in row):
+                    rows.append(list(row))
+        except Exception:
+            pass
 
     if not rows:
         return []
 
-    # Başlık satırını bul (ilk 6 satır içinde)
     header_idx = -1
     for i in range(min(6, len(rows))):
         row_str = " ".join([str(c).lower() for c in rows[i] if c is not None])
@@ -68,7 +77,6 @@ def parse_order_file(file_path):
     col_pazar = find_column_index(headers, ['pazaryeri', 'pazaryeriadi', 'platform', 'marketplace'])
     col_barkod = find_column_index(headers, ['barkod', 'gtin', 'barcode', 'ean', 'stokkodu', 'sku'])
 
-    # Dosya adından pazaryeri tahmini
     filename_lower = os.path.basename(file_path).lower()
     default_pazar = "Diğer"
     if "trendyol" in filename_lower:
@@ -84,7 +92,6 @@ def parse_order_file(file_path):
     elif "n11" in filename_lower:
         default_pazar = "N11"
 
-    # Siparişleri grupla
     orders_map = {}
     for r_idx, r in enumerate(data_rows):
         if not r or not any(r):

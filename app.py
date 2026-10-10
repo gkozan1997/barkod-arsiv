@@ -3,20 +3,29 @@ import io
 import webbrowser
 import threading
 import secrets
+import tempfile
 from flask import Flask, render_template, request, jsonify, send_file
-from core_db import init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel
+from core_db import IS_CLOUD, init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel
 from core_parser import parse_order_file
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'barkod-arsiv-secret-2026-key'
+app.config['MAX_CONTENT_LENGTH'] = 32 * 1024 * 1024
 
 PORT = 5004
 
-# DB Başlat
-init_db()
+try:
+    init_db()
+except Exception as e:
+    print(f"DB başlatma: {e}")
 
-TEMP_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'temp_uploads')
-os.makedirs(TEMP_DIR, exist_ok=True)
+def get_temp_upload_dir():
+    if IS_CLOUD:
+        temp_dir = os.path.join(tempfile.gettempdir(), 'temp_uploads')
+    else:
+        temp_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'data', 'temp_uploads')
+    os.makedirs(temp_dir, exist_ok=True)
+    return temp_dir
 
 @app.route('/')
 def index():
@@ -25,7 +34,6 @@ def index():
 
 @app.route('/api/upload-orders', methods=['POST'])
 def upload_orders():
-    """Pazaryeri Excel sipariş listesini yükler ve parse eder."""
     if 'file' not in request.files:
         return jsonify({'status': 'error', 'message': 'Dosya seçilmedi'}), 400
 
@@ -33,8 +41,9 @@ def upload_orders():
     if not file.filename:
         return jsonify({'status': 'error', 'message': 'Dosya adı geçersiz'}), 400
 
+    upload_dir = get_temp_upload_dir()
     unique_name = f"{secrets.token_hex(4)}_{file.filename}"
-    temp_path = os.path.join(TEMP_DIR, unique_name)
+    temp_path = os.path.join(upload_dir, unique_name)
     file.save(temp_path)
 
     try:
@@ -56,10 +65,6 @@ def upload_orders():
 
 @app.route('/api/record', methods=['POST'])
 def record_barcode():
-    """
-    Barkod / Seri no kaydeder.
-    Girdi: { siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazaryeri, okutma_yontemi, notlar }
-    """
     data = request.get_json() or {}
     barkod_seri_no = data.get('barkod_seri_no', '').strip()
 

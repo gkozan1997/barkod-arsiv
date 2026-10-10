@@ -1,24 +1,39 @@
 import os
+import sys
 import sqlite3
 import json
+import tempfile
 from datetime import datetime, timezone, timedelta
 import openpyxl
 from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
 
 TZ_ISTANBUL = timezone(timedelta(hours=3))
 
+IS_CLOUD = (
+    os.environ.get('VERCEL') == '1' or
+    os.environ.get('AWS_LAMBDA_FUNCTION_NAME') is not None or
+    os.environ.get('NOW_REGION') is not None
+)
+
 def get_now_istanbul():
     return datetime.now(TZ_ISTANBUL)
 
+def get_base_data_dir():
+    if IS_CLOUD:
+        base = os.path.join(tempfile.gettempdir(), 'barkod_arsiv_data')
+    else:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        base = os.path.join(base_dir, 'data')
+    os.makedirs(base, exist_ok=True)
+    return base
+
 def get_db_path():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    data_dir = os.path.join(base_dir, 'data')
-    os.makedirs(data_dir, exist_ok=True)
+    data_dir = get_base_data_dir()
     return os.path.join(data_dir, 'barkod_arsiv.db')
 
 def get_backup_dir():
-    base_dir = os.path.dirname(os.path.abspath(__file__))
-    backup_dir = os.path.join(base_dir, 'data', 'arsiv_gunluk')
+    data_dir = get_base_data_dir()
+    backup_dir = os.path.join(data_dir, 'arsiv_gunluk')
     os.makedirs(backup_dir, exist_ok=True)
     return backup_dir
 
@@ -53,28 +68,26 @@ def init_db():
     conn.close()
 
 def check_duplicate(barkod_seri_no):
-    """Aynı barkod/seri no daha önce taranmış mı kontrol eder."""
     if not barkod_seri_no:
         return False, None
-    conn = get_connection()
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT id, siparis_no, musteri_adi, urun_adi, barkod_seri_no, kayit_tarihi, pazaryeri
-        FROM barkod_kayitlari
-        WHERE barkod_seri_no = ? AND durum = 'Gecerli'
-        ORDER BY id DESC LIMIT 1
-    ''', (barkod_seri_no.strip(),))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return True, dict(row)
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, siparis_no, musteri_adi, urun_adi, barkod_seri_no, kayit_tarihi, pazaryeri
+            FROM barkod_kayitlari
+            WHERE barkod_seri_no = ? AND durum = 'Gecerli'
+            ORDER BY id DESC LIMIT 1
+        ''', (barkod_seri_no.strip(),))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            return True, dict(row)
+    except Exception as e:
+        print(f"Mükerrer kontrol hatası: {e}")
     return False, None
 
 def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazaryeri='Bilinmiyor', okutma_yontemi='El Terminali', notlar=''):
-    """
-    Barkod kaydını hem SQLite veritabanına yazar hem de anlık günlük JSON/Excel yedeğine ekler.
-    Sıfır veri kaybı garantisi sunar.
-    """
     now = get_now_istanbul()
     kayit_tarihi = now.strftime('%Y-%m-%d %H:%M:%S')
     kayit_gunu = now.strftime('%Y-%m-%d')
@@ -118,11 +131,10 @@ def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazary
         'is_duplicate': is_dup
     }
 
-    # Çift Katmanlı Yedek: Anlık JSON dosyasına ekle
     try:
         append_to_daily_json(kayit_gunu, record_data)
     except Exception as e:
-        print(f"JSON yedekleme hatasi: {e}")
+        print(f"JSON yedekleme hatası: {e}")
 
     return record_data, is_dup, dup_info
 
@@ -171,22 +183,30 @@ def get_stats():
     now = get_now_istanbul()
     bugun_str = now.strftime('%Y-%m-%d')
 
-    conn = get_connection()
-    cursor = conn.cursor()
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
 
-    cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE durum = 'Gecerli'")
-    toplam_kayit = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE durum = 'Gecerli'")
+        toplam_kayit = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE kayit_gunu = ? AND durum = 'Gecerli'", (bugun_str,))
-    bugun_kayit = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE kayit_gunu = ? AND durum = 'Gecerli'", (bugun_str,))
+        bugun_kayit = cursor.fetchone()[0]
 
-    cursor.execute("SELECT COUNT(DISTINCT siparis_no) FROM barkod_kayitlari WHERE siparis_no != '' AND durum = 'Gecerli'")
-    tekil_siparis = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(DISTINCT siparis_no) FROM barkod_kayitlari WHERE siparis_no != '' AND durum = 'Gecerli'")
+        tekil_siparis = cursor.fetchone()[0]
 
-    cursor.execute("SELECT * FROM barkod_kayitlari WHERE durum = 'Gecerli' ORDER BY id DESC LIMIT 15")
-    son_kayitlar = [dict(r) for r in cursor.fetchall()]
+        cursor.execute("SELECT * FROM barkod_kayitlari WHERE durum = 'Gecerli' ORDER BY id DESC LIMIT 15")
+        son_kayitlar = [dict(r) for r in cursor.fetchall()]
 
-    conn.close()
+        conn.close()
+    except Exception as e:
+        print(f"Stats okuma hatası: {e}")
+        toplam_kayit = 0
+        bugun_kayit = 0
+        tekil_siparis = 0
+        son_kayitlar = []
+
     return {
         'toplam_kayit': toplam_kayit,
         'bugun_kayit': bugun_kayit,
@@ -261,7 +281,6 @@ def export_records_to_excel(records, output_path=None):
             else:
                 cell.alignment = left_align
 
-    # Otomatik sütun genişliği
     col_widths = {1: 8, 2: 20, 3: 18, 4: 25, 5: 35, 6: 25, 7: 15, 8: 16, 9: 20}
     for col_idx, width in col_widths.items():
         col_letter = openpyxl.utils.get_column_letter(col_idx)
