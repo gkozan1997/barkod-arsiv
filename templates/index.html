@@ -9,8 +9,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript" async></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.2">
+    <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.3">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -396,16 +396,38 @@
         </main>
     </div>
 
-    <!-- KAMERA MODAL -->
+    <!-- KAMERA İLE AKILLI 2 ADIMLI TARAMA MODALI -->
     <div class="modal-overlay" id="camModal" style="display: none;">
-        <div class="modal-box">
+        <div class="modal-box cam-modal-box">
             <div class="modal-header">
-                <h3>📷 Kamera ile Barkod / Seri No Tara</h3>
-                <button class="modal-close-btn" id="btnCloseCamModal">✕</button>
+                <div style="display: flex; align-items: center; gap: 10px;">
+                    <span class="cam-step-pill step1-pill" id="camStepPill">📦 1. Adım: Kargo Barkodu</span>
+                    <h3 id="camModalTitle" style="margin: 0; font-size: 16px;">Koli Kargo Barkodunu Okutun</h3>
+                </div>
+                <button class="modal-close-btn" id="btnCloseCamModal" onclick="window.stopCameraScanner && window.stopCameraScanner()">✕</button>
             </div>
+            
             <div class="modal-body">
-                <div id="cameraPreview" style="width: 100%; min-height: 280px; border-radius: 8px; overflow: hidden; background: #000;"></div>
-                <div class="camera-status" id="camStatusText">Kamera başlatılıyor...</div>
+                <!-- AKTİF SİPARİŞ BİLGİ ŞERİDİ (2. ADIMDA AÇILIR) -->
+                <div class="cam-order-banner" id="camOrderBanner" style="display: none;">
+                    <div class="cam-banner-top">
+                        <span class="cam-banner-cust" id="camBannerCustomer">👤 Müşteri: -</span>
+                        <span class="cam-banner-kargo" id="camBannerKargo">🏷️ Kargo: -</span>
+                    </div>
+                    <div class="cam-banner-item" id="camBannerProduct">📦 Beklenen Ürün: -</div>
+                </div>
+
+                <!-- KAMERA VİDEO ÇERÇEVESİ -->
+                <div class="camera-preview-wrapper">
+                    <div id="cameraPreview" style="width: 100%; min-height: 260px; background: #000;"></div>
+                </div>
+
+                <div class="camera-status status-step1" id="camStatusText">Kamera başlatılıyor...</div>
+
+                <div class="cam-actions-footer">
+                    <button class="btn-secondary btn-sm" id="btnCamSwitchStep" style="display: none;" onclick="window.resetToWaitingState && window.resetToWaitingState(); window.updateCameraUIForStep && window.updateCameraUIForStep(1);">↺ Başa Dön (Kargo Barkodu Oku)</button>
+                    <button class="btn-secondary btn-sm" id="btnDismissCamFooter" onclick="window.stopCameraScanner && window.stopCameraScanner()">Kapat</button>
+                </div>
             </div>
         </div>
     </div>
@@ -467,6 +489,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.2"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.3"></script>
 </body>
 </html>

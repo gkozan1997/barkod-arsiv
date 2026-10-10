@@ -835,70 +835,343 @@ window.openProofModal = async function(recordId) {
 // --------------------------------------------------------------
 // 6. KAMERA İLE TARAMA
 // --------------------------------------------------------------
+// ==============================================================
+// 6. KAMERA İLE AKILLI 2 ADIMLI CANLI TARAMA (ELLER SERBEST)
+// ==============================================================
+let isCameraProcessing = false;
+let cameraCooldownUntil = 0;
+let activeCamStep = 1;
+
 function initCameraScanner() {
     const btnOrder = document.getElementById('btnToggleCamOrder');
     const btnFree = document.getElementById('btnToggleCamFree');
     const closeBtn = document.getElementById('btnCloseCamModal');
+    const footerCloseBtn = document.getElementById('btnDismissCamFooter');
+    const camSwitchStepBtn = document.getElementById('btnCamSwitchStep');
 
     if (btnOrder) btnOrder.addEventListener('click', () => startCameraScanner('order'));
     if (btnFree) btnFree.addEventListener('click', () => startCameraScanner('free'));
     if (closeBtn) closeBtn.addEventListener('click', stopCameraScanner);
+    if (footerCloseBtn) footerCloseBtn.addEventListener('click', stopCameraScanner);
+    if (camSwitchStepBtn) {
+        camSwitchStepBtn.addEventListener('click', () => {
+            resetToWaitingState();
+            updateCameraUIForStep(1);
+        });
+    }
 }
 
-function startCameraScanner(target) {
+function updateCameraUIForStep(step) {
+    activeCamStep = step;
+    const pill = document.getElementById('camStepPill');
+    const title = document.getElementById('camModalTitle');
+    const banner = document.getElementById('camOrderBanner');
+    const statusText = document.getElementById('camStatusText');
+    const switchBtn = document.getElementById('btnCamSwitchStep');
+
+    if (step === 1) {
+        if (pill) {
+            pill.className = 'cam-step-pill step1-pill';
+            pill.textContent = '📦 1. Adım: Kargo Barkodu';
+        }
+        if (title) title.textContent = 'Kolideki Kargo Barkodunu Okutun';
+        if (banner) banner.style.display = 'none';
+        if (switchBtn) switchBtn.style.display = 'none';
+        if (statusText) {
+            statusText.className = 'camera-status status-step1';
+            statusText.textContent = '📦 Kolideki kargo takip etiketini kameranın çerçevesine hizalayın...';
+        }
+    } else {
+        const order = (activeOrderIndex !== -1 && loadedOrders[activeOrderIndex]) ? loadedOrders[activeOrderIndex] : null;
+        if (pill) {
+            pill.className = 'cam-step-pill step2-pill';
+            pill.textContent = '🎯 2. Adım: Ürün Seri No';
+        }
+        if (title) {
+            title.textContent = order ? `Ürün Okutma (${order.musteri_adi})` : 'Ürün Seri No / Barkod Okutun';
+        }
+        if (banner && order) {
+            banner.style.display = 'block';
+            banner.style.background = 'rgba(17, 24, 39, 0.85)';
+            banner.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+
+            const cCust = document.getElementById('camBannerCustomer');
+            const cKargo = document.getElementById('camBannerKargo');
+            const cProd = document.getElementById('camBannerProduct');
+
+            const pending = order.urunler.find(i => !i.tamamlandi) || order.urunler[0];
+            const completedCount = order.urunler.filter(i => i.tamamlandi).length;
+
+            if (cCust) cCust.textContent = `👤 ${order.musteri_adi}`;
+            if (cKargo) cKargo.textContent = `🏷️ ${order.kargo_barkodu || order.siparis_no}`;
+            if (cProd && pending) {
+                cProd.innerHTML = `<strong>Beklenen:</strong> ${pending.urun_adi.substring(0, 45)} (${completedCount}/${order.urunler.length} Tamamlandı)`;
+            }
+        }
+        if (switchBtn) switchBtn.style.display = 'inline-block';
+        if (statusText) {
+            statusText.className = 'camera-status status-step2';
+            statusText.textContent = '🎯 Pakete koyduğunuz ürünün Seri No / Barkodunu kameraya tutun...';
+        }
+    }
+}
+
+function startCameraScanner(target = 'order') {
     activeCamTarget = target;
     const modal = document.getElementById('camModal');
-    const statusText = document.getElementById('camStatusText');
     if (modal) modal.style.display = 'flex';
-    if (statusText) statusText.textContent = 'Kamera başlatılıyor, lütfen kameraya izin verin...';
+
+    if (target === 'order') {
+        if (activeOrderIndex !== -1 && loadedOrders[activeOrderIndex]) {
+            updateCameraUIForStep(2);
+        } else {
+            updateCameraUIForStep(1);
+        }
+    } else {
+        const pill = document.getElementById('camStepPill');
+        if (pill) {
+            pill.className = 'cam-step-pill step1-pill';
+            pill.textContent = '⚡ Hızlı Serbest Kayıt';
+        }
+        const title = document.getElementById('camModalTitle');
+        if (title) title.textContent = 'Barkod / Seri No Okutun';
+        const banner = document.getElementById('camOrderBanner');
+        if (banner) banner.style.display = 'none';
+        const statusText = document.getElementById('camStatusText');
+        if (statusText) statusText.textContent = 'Barkod veya seri numarasını kamera çerçevesine tutun...';
+    }
+
+    launchHtml5QrCode();
+}
+
+function launchHtml5QrCode() {
+    const statusText = document.getElementById('camStatusText');
 
     if (typeof Html5Qrcode === 'undefined') {
-        if (statusText) statusText.textContent = 'Kamera kütüphanesi yükleniyor, lütfen birkaç saniye bekleyin...';
+        if (statusText) statusText.textContent = 'Kamera kütüphanesi yüklenemedi. Lütfen sayfayı yenileyin.';
         return;
     }
 
     if (html5QrCode) {
         html5QrCode.stop().catch(() => {}).finally(() => {
             html5QrCode = null;
-            launchHtml5QrCode(statusText);
+            execLaunchCamera();
         });
     } else {
-        launchHtml5QrCode(statusText);
+        execLaunchCamera();
     }
 }
 
-function launchHtml5QrCode(statusText) {
+function execLaunchCamera() {
+    const statusText = document.getElementById('camStatusText');
     try {
         html5QrCode = new Html5Qrcode("cameraPreview");
-        const config = { fps: 15, qrbox: { width: 280, height: 180 } };
+        const config = {
+            fps: 15,
+            qrbox: { width: 280, height: 180 },
+            aspectRatio: 1.333334
+        };
 
         html5QrCode.start(
             { facingMode: "environment" },
             config,
             (decodedText) => {
-                stopCameraScanner();
-                if (activeCamTarget === 'order') {
-                    const scanInput = document.getElementById('activeScanInput');
-                    if (scanInput) {
-                        scanInput.value = decodedText;
-                        handleSmartScan(decodedText);
-                    }
-                } else if (activeCamTarget === 'free') {
-                    const freeInput = document.getElementById('freeScanInput');
-                    if (freeInput) {
-                        freeInput.value = decodedText;
-                        executeFreeScan();
-                    }
-                }
+                onCameraBarcodeDecoded(decodedText);
             },
             () => {}
         ).then(() => {
-            if (statusText) statusText.textContent = 'Kamera aktif. Barkod veya seri numarasını kutu içine getirin.';
+            if (statusText && !isCameraProcessing) {
+                if (activeCamTarget === 'order') {
+                    if (activeCamStep === 1) {
+                        statusText.textContent = '📦 Kamera aktif: Kolideki kargo takip etiketini gösterin...';
+                    } else {
+                        statusText.textContent = '🎯 Kamera aktif: Ürünün seri numarasını gösterin...';
+                    }
+                } else {
+                    statusText.textContent = 'Kamera aktif: Barkodu kutu içine hizalayın...';
+                }
+            }
         }).catch(err => {
             if (statusText) statusText.textContent = 'Kamera erişim hatası: ' + err;
         });
     } catch (e) {
         if (statusText) statusText.textContent = 'Kamera başlatılamadı: ' + e.message;
+    }
+}
+
+async function onCameraBarcodeDecoded(decodedText) {
+    const now = Date.now();
+    if (isCameraProcessing || now < cameraCooldownUntil) {
+        return;
+    }
+    const cleanCode = decodedText.trim();
+    if (!cleanCode) return;
+
+    isCameraProcessing = true;
+    const statusText = document.getElementById('camStatusText');
+
+    try {
+        if (activeCamTarget === 'free') {
+            stopCameraScanner();
+            const freeInput = document.getElementById('freeScanInput');
+            if (freeInput) {
+                freeInput.value = cleanCode;
+                executeFreeScan();
+            }
+            return;
+        }
+
+        // ActiveCamTarget === 'order'
+        if (activeCamStep === 1 || activeOrderIndex === -1) {
+            // STEP 1: Scan cargo barcode to find customer
+            if (loadedOrders.length === 0) {
+                playWarningBuzzer();
+                if (statusText) statusText.textContent = '⚠️ Henüz sipariş listesi yüklenmedi! Lütfen yukarıdan Excel seçin.';
+                cameraCooldownUntil = Date.now() + 2000;
+                return;
+            }
+
+            const cleanAlnum = cleanCode.replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+            let matchedIdx = loadedOrders.findIndex(o => 
+                (o.kargo_barkodu && o.kargo_barkodu.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+                (o.siparis_no && o.siparis_no.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+                (o.paket_no && o.paket_no.trim().toLowerCase() === cleanCode.toLowerCase())
+            );
+
+            if (matchedIdx === -1 && cleanAlnum) {
+                matchedIdx = loadedOrders.findIndex(o => {
+                    const kbAlnum = (o.kargo_barkodu || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const spAlnum = (o.siparis_no || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    const pkAlnum = (o.paket_no || '').replace(/[^a-zA-Z0-9]/g, '').toLowerCase();
+                    return (kbAlnum && kbAlnum === cleanAlnum) || (spAlnum && spAlnum === cleanAlnum) || (pkAlnum && pkAlnum === cleanAlnum);
+                });
+            }
+
+            if (matchedIdx === -1 && cleanCode.length >= 6) {
+                matchedIdx = loadedOrders.findIndex(o => {
+                    const kb = (o.kargo_barkodu || '').trim().toLowerCase();
+                    const sp = (o.siparis_no || '').trim().toLowerCase();
+                    return (kb && (kb.endsWith(cleanCode.toLowerCase()) || cleanCode.toLowerCase().endsWith(kb))) ||
+                           (sp && (sp.endsWith(cleanCode.toLowerCase()) || cleanCode.toLowerCase().endsWith(sp)));
+                });
+            }
+
+            if (matchedIdx !== -1) {
+                // MATCHED! Customer found!
+                playSuccessBeep();
+                selectOrder(matchedIdx);
+                const order = loadedOrders[matchedIdx];
+
+                updateCameraUIForStep(2);
+                if (statusText) {
+                    statusText.innerHTML = `✅ <strong>MÜŞTERİ BULUNDU:</strong> ${order.musteri_adi}<br>🎯 Şimdi ürünün seri numarasını kameraya tutun!`;
+                }
+
+                // Give 1.5 seconds cooldown so the cargo barcode isn't instantly re-read
+                cameraCooldownUntil = Date.now() + 1500;
+            } else {
+                playWarningBuzzer();
+                if (statusText) {
+                    statusText.textContent = `⚠️ Kargo barkodu listede bulunamadı: "${cleanCode}". Kolideki doğru barkodu tutun.`;
+                }
+                cameraCooldownUntil = Date.now() + 1500;
+            }
+        } else if (activeCamStep === 2) {
+            // STEP 2: Scan product barcode/serial
+            const order = loadedOrders[activeOrderIndex];
+
+            // Safety check: Did user accidentally scan the cargo barcode again?
+            const isSameKargo = (order.kargo_barkodu && order.kargo_barkodu.trim().toLowerCase() === cleanCode.toLowerCase()) ||
+                                (order.siparis_no && order.siparis_no.trim().toLowerCase() === cleanCode.toLowerCase());
+            if (isSameKargo) {
+                playWarningBuzzer();
+                if (statusText) statusText.textContent = `⚠️ Bu koli kargo barkodu! Lütfen kutudaki ÜRÜNÜN seri numarasını gösterin.`;
+                cameraCooldownUntil = Date.now() + 1200;
+                return;
+            }
+
+            const pendingItem = order.urunler.find(i => !i.tamamlandi);
+            if (!pendingItem) {
+                playSuccessBeep();
+                if (statusText) statusText.textContent = `🎉 Bu paketin tüm ürünleri tamamlanmış! Sıradaki koliye geçiliyor...`;
+                setTimeout(() => {
+                    resetToWaitingState();
+                    updateCameraUIForStep(1);
+                }, 1200);
+                cameraCooldownUntil = Date.now() + 1500;
+                return;
+            }
+
+            if (statusText) statusText.textContent = `Ürün kaydediliyor: ${cleanCode}...`;
+
+            const response = await fetch('/api/record', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    kargo_barkodu: order.kargo_barkodu || '',
+                    siparis_no: order.siparis_no || '',
+                    musteri_adi: order.musteri_adi,
+                    urun_adi: pendingItem.urun_adi,
+                    barkod_seri_no: cleanCode,
+                    pazaryeri: order.pazaryeri,
+                    okutma_yontemi: 'Kamera / Canlı Tarama'
+                })
+            });
+            const res = await response.json();
+
+            if (res.status === 'success') {
+                if (!pendingItem.seri_nolar) pendingItem.seri_nolar = [];
+                pendingItem.seri_nolar.push(cleanCode);
+                pendingItem.okunan_adet = (pendingItem.okunan_adet || 0) + 1;
+                pendingItem.tamamlandi = true;
+                pendingItem.okunan_adet = pendingItem.adet;
+
+                renderActiveOrderItems();
+                updateOrderProgress();
+                renderOrderCards();
+                updateHeaderStats(res.stats);
+
+                const allDone = order.urunler.every(i => i.tamamlandi);
+
+                if (res.is_duplicate) {
+                    playWarningBuzzer();
+                    if (statusText) statusText.innerHTML = `⚠️ <strong>MÜKERRER:</strong> ${cleanCode} daha önce kaydedilmiş! Mühürlendi.`;
+                } else {
+                    playSuccessBeep();
+                    if (statusText) statusText.innerHTML = `✅ <strong>MÜHÜRLENDİ:</strong> ${pendingItem.urun_adi.substring(0, 30)}... (${cleanCode})`;
+                }
+
+                if (allDone) {
+                    playSuccessBeep();
+                    const banner = document.getElementById('camOrderBanner');
+                    if (banner) {
+                        banner.style.background = 'rgba(16, 185, 129, 0.35)';
+                        banner.style.borderColor = '#10B981';
+                    }
+                    if (statusText) {
+                        statusText.innerHTML = `🎉 <strong>TEBRİKLER!</strong> ${order.musteri_adi} paketi tamamlandı! 2 saniye sonra sıradaki koliye geçiliyor...`;
+                    }
+                    setTimeout(() => {
+                        resetToWaitingState();
+                        updateCameraUIForStep(1);
+                    }, 2000);
+                    cameraCooldownUntil = Date.now() + 2500;
+                } else {
+                    updateCameraUIForStep(2);
+                    cameraCooldownUntil = Date.now() + 1400;
+                }
+            } else {
+                playWarningBuzzer();
+                if (statusText) statusText.textContent = 'Hata: ' + (res.message || 'Kaydedilemedi');
+                cameraCooldownUntil = Date.now() + 1500;
+            }
+        }
+    } catch (err) {
+        playWarningBuzzer();
+        if (statusText) statusText.textContent = 'Bağlantı hatası: ' + err.message;
+        cameraCooldownUntil = Date.now() + 1500;
+    } finally {
+        isCameraProcessing = false;
     }
 }
 
@@ -908,12 +1181,17 @@ function stopCameraScanner() {
 
     if (html5QrCode) {
         html5QrCode.stop().then(() => {
-            html5QrCode.clear();
+            try { html5QrCode.clear(); } catch (e) {}
             html5QrCode = null;
         }).catch(() => {
             html5QrCode = null;
         });
     }
+
+    setTimeout(() => {
+        const activeInput = document.getElementById('activeScanInput');
+        if (activeInput) activeInput.focus();
+    }, 100);
 }
 
 // --------------------------------------------------------------
@@ -1032,3 +1310,5 @@ window.setScanStep = setScanStep;
 window.refreshDashboardStats = refreshDashboardStats;
 
 window.resetToWaitingState = resetToWaitingState;
+
+window.updateCameraUIForStep = updateCameraUIForStep;

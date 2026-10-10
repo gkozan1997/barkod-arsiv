@@ -1145,3 +1145,128 @@ body {
     box-shadow: 0 0 14px rgba(16, 185, 129, 0.25);
     color: #34D399;
 }
+
+
+/* ==============================================================
+   KAMERA AKILLI 2 ADIMLI TARAMA STİLLERİ
+   ============================================================== */
+.cam-modal-box {
+    max-width: 580px;
+    background: #0F172A;
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 16px;
+    box-shadow: 0 25px 60px rgba(0, 0, 0, 0.8), 0 0 30px rgba(56, 189, 248, 0.15);
+}
+
+.cam-step-pill {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 700;
+    font-family: 'Outfit', sans-serif;
+    letter-spacing: 0.3px;
+    transition: all 0.3s;
+}
+
+.cam-step-pill.step1-pill {
+    background: rgba(56, 189, 248, 0.18);
+    color: #38BDF8;
+    border: 1px solid rgba(56, 189, 248, 0.4);
+    box-shadow: 0 0 10px rgba(56, 189, 248, 0.2);
+}
+
+.cam-step-pill.step2-pill {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34D399;
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.2);
+}
+
+.cam-order-banner {
+    background: rgba(17, 24, 39, 0.85);
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    border-radius: 10px;
+    padding: 10px 14px;
+    margin-bottom: 12px;
+    transition: all 0.3s;
+}
+
+.cam-banner-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+}
+
+.cam-banner-cust {
+    font-weight: 700;
+    font-size: 14px;
+    color: #34D399;
+}
+
+.cam-banner-kargo {
+    font-size: 12.5px;
+    color: #38BDF8;
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+
+.cam-banner-item {
+    font-size: 12px;
+    color: #E2E8F0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.camera-preview-wrapper {
+    position: relative;
+    width: 100%;
+    min-height: 280px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #000;
+    border: 2px solid rgba(255, 255, 255, 0.1);
+}
+
+#cameraPreview video {
+    width: 100% !important;
+    height: auto !important;
+    border-radius: 10px;
+}
+
+.camera-status {
+    margin-top: 12px;
+    padding: 10px 14px;
+    border-radius: 8px;
+    font-size: 13.5px;
+    font-weight: 600;
+    text-align: center;
+    background: rgba(30, 41, 59, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    color: #E2E8F0;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.25s;
+}
+
+.camera-status.status-step1 {
+    color: #38BDF8;
+    border-color: rgba(56, 189, 248, 0.3);
+    background: rgba(56, 189, 248, 0.08);
+}
+
+.camera-status.status-step2 {
+    color: #34D399;
+    border-color: rgba(16, 185, 129, 0.3);
+    background: rgba(16, 185, 129, 0.08);
+}
+
+.cam-actions-footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+}
