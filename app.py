@@ -41,9 +41,14 @@ def load_recent_download():
 
     recent_files = []
     for f in os.listdir(downloads_dir):
+        if f.startswith('~') or f.startswith('.'):
+            continue
         if f.lower().endswith(('.xlsx', '.xls', '.csv')) and any(w in f.lower() for w in ['sipari', 'order']):
             fp = os.path.join(downloads_dir, f)
-            recent_files.append((os.path.getmtime(fp), fp, f))
+            try:
+                recent_files.append((os.path.getmtime(fp), fp, f))
+            except Exception:
+                pass
 
     if not recent_files:
         return jsonify({'status': 'error', 'message': 'İndirilenler klasöründe sipariş dosyası bulunamadı'}), 404

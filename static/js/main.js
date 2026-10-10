@@ -326,7 +326,7 @@ async function handleSmartScan(code) {
 
     if (loadedOrders.length === 0) {
         playWarningBuzzer();
-        showAlert(alertBox, 'error', 'Henüz sipariş listesi yüklenmedi! Lütfen yukarıdan "İndirilenler'den Getir" veya "Dosya Seç" ile listenizi yükleyin.');
+        showAlert(alertBox, 'error', 'Henüz sipariş listesi yüklenmedi! Lütfen yukarıdan "İndirilenler\'den Getir" veya "Dosya Seç" ile listenizi yükleyin.');
         scanInput.value = '';
         return;
     }
@@ -888,3 +888,78 @@ async function refreshDashboardStats() {
         console.error('Stats refresh error:', e);
     }
 }
+
+
+// ==============================================================
+// GLOBAL WINDOW ERİŞİMLERİ (DOĞRUDAN HTML VE BUTON TIKLAMALARI İÇİN)
+// ==============================================================
+window.switchTab = function(targetId) {
+    if (!targetId) return;
+    const tabs = document.querySelectorAll('.nav-tab');
+    const panes = document.querySelectorAll('.tab-pane');
+
+    tabs.forEach(t => {
+        if (t.dataset.tab === targetId) t.classList.add('active');
+        else t.classList.remove('active');
+    });
+
+    panes.forEach(p => {
+        if (p.id === targetId) p.classList.add('active');
+        else p.classList.remove('active');
+    });
+
+    if (targetId === 'tab-siparis') {
+        const inp = document.getElementById('activeScanInput');
+        if (inp) inp.focus();
+    } else if (targetId === 'tab-serbest') {
+        const inp = document.getElementById('freeScanInput');
+        if (inp) inp.focus();
+    } else if (targetId === 'tab-arama') {
+        const inp = document.getElementById('archiveSearchInput');
+        if (inp) inp.focus();
+    }
+};
+
+window.handleFileInputChange = function(files) {
+    if (files && files.length > 0) {
+        handleFileUpload(files[0]);
+    }
+};
+
+window.loadRecentExcel = async function() {
+    const recentBtn = document.getElementById('btnLoadRecentExcel');
+    const orig = recentBtn ? recentBtn.textContent : '⚡ İndirilenler\'den Getir';
+    if (recentBtn) recentBtn.textContent = 'Yükleniyor...';
+    try {
+        const response = await fetch('/api/load-recent-download', { method: 'POST' });
+        const res = await response.json();
+        if (res.status === 'success') {
+            loadedOrders = res.orders || [];
+            const counter = document.getElementById('loadedOrderCount');
+            if (counter) counter.textContent = loadedOrders.length;
+            renderOrderCards();
+            const dropText = document.querySelector('.dropzone-text strong');
+            if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Paket)`;
+            if (loadedOrders.length > 0) selectOrder(0);
+            playSuccessBeep();
+        } else {
+            alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
+            playWarningBuzzer();
+        }
+    } catch (err) {
+        alert('İndirilenler klasörüne doğrudan erişim yerel sunucuda (127.0.0.1:5004) çalışır. Bulutta dosyanızı "Dosya Seç" butonu ile yükleyebilirsiniz.');
+        playWarningBuzzer();
+    } finally {
+        if (recentBtn) recentBtn.textContent = orig;
+    }
+};
+
+window.selectOrder = selectOrder;
+window.handleSmartScan = handleSmartScan;
+window.processProductSerialScan = processProductSerialScan;
+window.executeFreeScan = executeFreeScan;
+window.executeArchiveSearch = executeArchiveSearch;
+window.startCameraScanner = startCameraScanner;
+window.stopCameraScanner = stopCameraScanner;
+window.setScanStep = setScanStep;
+window.refreshDashboardStats = refreshDashboardStats;
