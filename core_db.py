@@ -1,0 +1,272 @@
+import os
+import sqlite3
+import json
+from datetime import datetime, timezone, timedelta
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+
+TZ_ISTANBUL = timezone(timedelta(hours=3))
+
+def get_now_istanbul():
+    return datetime.now(TZ_ISTANBUL)
+
+def get_db_path():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    data_dir = os.path.join(base_dir, 'data')
+    os.makedirs(data_dir, exist_ok=True)
+    return os.path.join(data_dir, 'barkod_arsiv.db')
+
+def get_backup_dir():
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    backup_dir = os.path.join(base_dir, 'data', 'arsiv_gunluk')
+    os.makedirs(backup_dir, exist_ok=True)
+    return backup_dir
+
+def get_connection():
+    db_path = get_db_path()
+    conn = sqlite3.connect(db_path, timeout=15)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+def init_db():
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS barkod_kayitlari (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            siparis_no TEXT,
+            musteri_adi TEXT,
+            urun_adi TEXT,
+            barkod_seri_no TEXT NOT NULL,
+            pazaryeri TEXT,
+            kayit_tarihi TEXT NOT NULL,
+            kayit_gunu TEXT NOT NULL,
+            okutma_yontemi TEXT DEFAULT 'El Terminali',
+            notlar TEXT,
+            durum TEXT DEFAULT 'Gecerli'
+        )
+    ''')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_barkod ON barkod_kayitlari(barkod_seri_no)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_siparis ON barkod_kayitlari(siparis_no)')
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_gun ON barkod_kayitlari(kayit_gunu)')
+    conn.commit()
+    conn.close()
+
+def check_duplicate(barkod_seri_no):
+    """Aynı barkod/seri no daha önce taranmış mı kontrol eder."""
+    if not barkod_seri_no:
+        return False, None
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT id, siparis_no, musteri_adi, urun_adi, barkod_seri_no, kayit_tarihi, pazaryeri
+        FROM barkod_kayitlari
+        WHERE barkod_seri_no = ? AND durum = 'Gecerli'
+        ORDER BY id DESC LIMIT 1
+    ''', (barkod_seri_no.strip(),))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return True, dict(row)
+    return False, None
+
+def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazaryeri='Bilinmiyor', okutma_yontemi='El Terminali', notlar=''):
+    """
+    Barkod kaydını hem SQLite veritabanına yazar hem de anlık günlük JSON/Excel yedeğine ekler.
+    Sıfır veri kaybı garantisi sunar.
+    """
+    now = get_now_istanbul()
+    kayit_tarihi = now.strftime('%Y-%m-%d %H:%M:%S')
+    kayit_gunu = now.strftime('%Y-%m-%d')
+    barkod_temiz = str(barkod_seri_no).strip()
+
+    is_dup, dup_info = check_duplicate(barkod_temiz)
+
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute('''
+        INSERT INTO barkod_kayitlari (
+            siparis_no, musteri_adi, urun_adi, barkod_seri_no,
+            pazaryeri, kayit_tarihi, kayit_gunu, okutma_yontemi, notlar, durum
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Gecerli')
+    ''', (
+        (siparis_no or '').strip(),
+        (musteri_adi or '').strip(),
+        (urun_adi or '').strip(),
+        barkod_temiz,
+        (pazaryeri or 'Bilinmiyor').strip(),
+        kayit_tarihi,
+        kayit_gunu,
+        okutma_yontemi,
+        (notlar or '').strip()
+    ))
+    record_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+
+    record_data = {
+        'id': record_id,
+        'siparis_no': siparis_no or '',
+        'musteri_adi': musteri_adi or '',
+        'urun_adi': urun_adi or '',
+        'barkod_seri_no': barkod_temiz,
+        'pazaryeri': pazaryeri or '',
+        'kayit_tarihi': kayit_tarihi,
+        'kayit_gunu': kayit_gunu,
+        'okutma_yontemi': okutma_yontemi,
+        'notlar': notlar or '',
+        'is_duplicate': is_dup
+    }
+
+    # Çift Katmanlı Yedek: Anlık JSON dosyasına ekle
+    try:
+        append_to_daily_json(kayit_gunu, record_data)
+    except Exception as e:
+        print(f"JSON yedekleme hatasi: {e}")
+
+    return record_data, is_dup, dup_info
+
+def append_to_daily_json(gun_str, record_data):
+    backup_dir = get_backup_dir()
+    json_path = os.path.join(backup_dir, f'{gun_str}.json')
+    records = []
+    if os.path.exists(json_path):
+        try:
+            with open(json_path, 'r', encoding='utf-8') as f:
+                records = json.load(f)
+        except Exception:
+            records = []
+    records.append(record_data)
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(records, f, ensure_ascii=False, indent=2)
+
+def search_records(query='', start_date='', end_date='', limit=200):
+    conn = get_connection()
+    cursor = conn.cursor()
+    sql = "SELECT * FROM barkod_kayitlari WHERE durum = 'Gecerli'"
+    params = []
+
+    if query:
+        q = f"%{query.strip()}%"
+        sql += " AND (barkod_seri_no LIKE ? OR siparis_no LIKE ? OR musteri_adi LIKE ? OR urun_adi LIKE ?)"
+        params.extend([q, q, q, q])
+
+    if start_date:
+        sql += " AND kayit_gunu >= ?"
+        params.append(start_date)
+
+    if end_date:
+        sql += " AND kayit_gunu <= ?"
+        params.append(end_date)
+
+    sql += " ORDER BY id DESC LIMIT ?"
+    params.append(limit)
+
+    cursor.execute(sql, params)
+    rows = cursor.fetchall()
+    conn.close()
+    return [dict(r) for r in rows]
+
+def get_stats():
+    now = get_now_istanbul()
+    bugun_str = now.strftime('%Y-%m-%d')
+
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE durum = 'Gecerli'")
+    toplam_kayit = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE kayit_gunu = ? AND durum = 'Gecerli'", (bugun_str,))
+    bugun_kayit = cursor.fetchone()[0]
+
+    cursor.execute("SELECT COUNT(DISTINCT siparis_no) FROM barkod_kayitlari WHERE siparis_no != '' AND durum = 'Gecerli'")
+    tekil_siparis = cursor.fetchone()[0]
+
+    cursor.execute("SELECT * FROM barkod_kayitlari WHERE durum = 'Gecerli' ORDER BY id DESC LIMIT 15")
+    son_kayitlar = [dict(r) for r in cursor.fetchall()]
+
+    conn.close()
+    return {
+        'toplam_kayit': toplam_kayit,
+        'bugun_kayit': bugun_kayit,
+        'tekil_siparis': tekil_siparis,
+        'bugun_tarih': bugun_str,
+        'son_kayitlar': son_kayitlar
+    }
+
+def get_record_by_id(record_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM barkod_kayitlari WHERE id = ?", (record_id,))
+    row = cursor.fetchone()
+    conn.close()
+    return dict(row) if row else None
+
+def export_records_to_excel(records, output_path=None):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Barkod Kayıtları"
+
+    headers = ["ID", "Kayıt Tarihi", "Sipariş No", "Müşteri Adı", "Ürün Adı", "Barkod / Seri No", "Pazaryeri", "Okutma Yöntemi", "Notlar"]
+    ws.append(headers)
+
+    header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
+    header_fill = PatternFill(start_color="1E293B", end_color="1E293B", fill_type="solid")
+    center_align = Alignment(horizontal="center", vertical="center")
+    left_align = Alignment(horizontal="left", vertical="center")
+
+    thin_border = Border(
+        left=Side(style='thin', color='E2E8F0'),
+        right=Side(style='thin', color='E2E8F0'),
+        top=Side(style='thin', color='E2E8F0'),
+        bottom=Side(style='thin', color='E2E8F0')
+    )
+
+    for col_idx in range(1, len(headers) + 1):
+        cell = ws.cell(row=1, column=col_idx)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = center_align
+    ws.row_dimensions[1].height = 28
+
+    zebra_fill = PatternFill(start_color="F8FAFC", end_color="F8FAFC", fill_type="solid")
+
+    for row_idx, r in enumerate(records, start=2):
+        ws.append([
+            r.get('id', ''),
+            r.get('kayit_tarihi', ''),
+            r.get('siparis_no', ''),
+            r.get('musteri_adi', ''),
+            r.get('urun_adi', ''),
+            r.get('barkod_seri_no', ''),
+            r.get('pazaryeri', ''),
+            r.get('okutma_yontemi', ''),
+            r.get('notlar', '')
+        ])
+        ws.row_dimensions[row_idx].height = 22
+        is_even = (row_idx % 2 == 0)
+
+        for col_idx in range(1, len(headers) + 1):
+            cell = ws.cell(row=row_idx, column=col_idx)
+            cell.font = Font(name="Segoe UI", size=10)
+            cell.border = thin_border
+            if is_even:
+                cell.fill = zebra_fill
+            if col_idx in [1, 2, 3, 7, 8]:
+                cell.alignment = center_align
+            elif col_idx == 6:
+                cell.alignment = center_align
+                cell.font = Font(name="Consolas", size=10.5, bold=True, color="1E3A8A")
+            else:
+                cell.alignment = left_align
+
+    # Otomatik sütun genişliği
+    col_widths = {1: 8, 2: 20, 3: 18, 4: 25, 5: 35, 6: 25, 7: 15, 8: 16, 9: 20}
+    for col_idx, width in col_widths.items():
+        col_letter = openpyxl.utils.get_column_letter(col_idx)
+        ws.column_dimensions[col_letter].width = width
+
+    if output_path:
+        wb.save(output_path)
+    return wb

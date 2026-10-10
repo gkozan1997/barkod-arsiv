@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+baslat.bat
+data/*.db
+data/temp_uploads/

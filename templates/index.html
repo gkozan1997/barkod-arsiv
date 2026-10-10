@@ -1,0 +1,411 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barkod & Seri No Arşivleme Paneli</title>
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
+    <!-- QR / Barcode Scanner CDN -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+</head>
+<body>
+    <div class="bg-glow"></div>
+
+    <div class="app-layout">
+        <!-- HEADER -->
+        <header class="app-header">
+            <div class="brand">
+                <div class="brand-icon">🛡️</div>
+                <div>
+                    <h1 class="brand-title">Barkod & Seri No Arşivleme</h1>
+                    <p class="brand-subtitle">Depo Çıkış Güvenliği & Kaybolmayı Önleme Sistemi</p>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="status-pill">
+                    <span class="status-pulse"></span>
+                    <span class="status-text">Port 5004 • Aktif</span>
+                </div>
+                <div class="stats-badge">
+                    <span class="stats-label">Bugün Okutulan:</span>
+                    <span class="stats-val" id="headerTodayCount">{{ stats.bugun_kayit }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- TOP NAVIGATION TABS -->
+        <nav class="main-tabs-nav">
+            <button class="nav-tab active" data-tab="tab-siparis">
+                <span class="tab-icon">📦</span>
+                <span class="tab-text">Sipariş Listesiyle Eşleme</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-serbest">
+                <span class="tab-icon">⚡</span>
+                <span class="tab-text">Hızlı Serbest Kayıt</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-arama">
+                <span class="tab-icon">🔍</span>
+                <span class="tab-text">Arama & Kanıt Arşivi</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-guvenlik">
+                <span class="tab-icon">📊</span>
+                <span class="tab-text">Veri Güvenliği & Yedek</span>
+            </button>
+        </nav>
+
+        <!-- MAIN CONTENT AREA -->
+        <main class="main-content">
+            
+            <!-- TAB 1: SİPARİŞ LİSTESİYLE EŞLEME -->
+            <section id="tab-siparis" class="tab-pane active">
+                <div class="excel-upload-bar">
+                    <div class="upload-dropzone" id="excelDropzone">
+                        <div class="dropzone-icon">📥</div>
+                        <div class="dropzone-text">
+                            <strong>Pazaryeri Excel Sipariş Listesini Sürükleyin</strong> veya tıklayarak seçin
+                            <span>(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb.)</span>
+                        </div>
+                        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" style="display: none;">
+                        <button class="btn-secondary" type="button" id="browseExcelBtn">Dosya Seç</button>
+                    </div>
+                </div>
+
+                <div class="order-workflow-grid">
+                    <!-- SOL: SİPARİŞ LİSTESİ -->
+                    <div class="order-list-col">
+                        <div class="col-card">
+                            <div class="col-card-header">
+                                <h3>Siparişler (<span id="loadedOrderCount">0</span>)</h3>
+                                <input type="text" id="orderFilterInput" class="filter-input" placeholder="Sipariş / Müşteri Ara...">
+                            </div>
+                            <div class="order-cards-scroll" id="orderCardsContainer">
+                                <div class="empty-state">
+                                    Henüz sipariş yüklenmedi.<br>Yukarıdaki alandan Excel dosyanızı seçin.
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- SAĞ: AKTİF SİPARİŞ VE SERİ NO OKUTMA ALANI -->
+                    <div class="order-action-col">
+                        <div class="col-card active-order-card">
+                            <div class="active-order-header">
+                                <div>
+                                    <span class="order-marketplace-badge" id="activeMarketplace">Pazaryeri</span>
+                                    <h2 class="active-order-title" id="activeOrderTitle">Sipariş Seçilmedi</h2>
+                                    <p class="active-order-customer" id="activeCustomerName">Lütfen soldaki listeden bir siparişe tıklayın</p>
+                                </div>
+                                <div class="order-progress-box">
+                                    <div class="progress-percent" id="orderProgressPercent">%0</div>
+                                    <div class="progress-label">Tamamlandı</div>
+                                </div>
+                            </div>
+
+                            <!-- TARAMA GİRİŞİ -->
+                            <div class="scanner-input-box">
+                                <label for="activeScanInput">
+                                    <span class="scan-label-title">🎯 Ürün Seri No / Barkodunu Okutun:</span>
+                                    <span class="scan-label-hint">Okuyucu otomatik algılar veya klavyeyle yazıp Enter'a basın</span>
+                                </label>
+                                <div class="input-with-actions">
+                                    <input type="text" id="activeScanInput" class="scan-large-input" placeholder="Seri Numarası / Barkod Okutun..." autocomplete="off" disabled>
+                                    <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
+                                </div>
+                                <div class="scan-feedback-alert" id="orderScanAlert" style="display: none;"></div>
+                            </div>
+
+                            <!-- SİPARİŞ KALEMLERİ LİSTESİ -->
+                            <div class="order-items-section">
+                                <h4>Pakete Girecek Ürünler</h4>
+                                <div class="items-table-wrap">
+                                    <table class="items-table">
+                                        <thead>
+                                            <tr>
+                                                <th style="width: 50px;">Durum</th>
+                                                <th>Ürün Adı</th>
+                                                <th style="width: 80px; text-align: center;">Adet</th>
+                                                <th>Kaydedilen Seri No</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody id="activeOrderItemsBody">
+                                            <tr>
+                                                <td colspan="4" class="text-center text-muted">Sipariş seçildiğinde ürünler burada listelenecektir.</td>
+                                            </tr>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            <!-- TAMAMLANMA BİLDİRİMİ -->
+                            <div class="order-completion-banner" id="orderCompleteBanner" style="display: none;">
+                                <div class="completion-icon">✅</div>
+                                <div>
+                                    <h4>Tüm Ürünlerin Barkod / Seri Numaraları Kaydedildi!</h4>
+                                    <p>Bu siparişin tüm çıkış bilgileri veritabanına ve günlük arşive mühürlendi.</p>
+                                </div>
+                                <button class="btn-primary" id="btnNextOrder">Sıradaki Siparişe Geç ➡️</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 2: HIZLI SERBEST KAYIT -->
+            <section id="tab-serbest" class="tab-pane">
+                <div class="free-scan-layout">
+                    <div class="free-scan-card">
+                        <div class="free-scan-header">
+                            <div class="free-icon">⚡</div>
+                            <div>
+                                <h2>Hızlı Serbest Barkod / Seri No Kaydı</h2>
+                                <p>Excel yüklemeden, anlık gelen sipariş veya müşteri ürünlerini tek adımda kaydedin.</p>
+                            </div>
+                        </div>
+
+                        <div class="free-inputs-grid">
+                            <div class="input-group">
+                                <label>Sipariş Numarası / Takip Kodu:</label>
+                                <input type="text" id="freeOrderNo" class="form-input" placeholder="Örn: 948291041 (Opsiyonel)">
+                            </div>
+                            <div class="input-group">
+                                <label>Müşteri Adı / Alıcı:</label>
+                                <input type="text" id="freeCustomerName" class="form-input" placeholder="Örn: Mehmet Özkan (Opsiyonel)">
+                            </div>
+                            <div class="input-group">
+                                <label>Ürün Adı / Açıklama:</label>
+                                <input type="text" id="freeProductName" class="form-input" placeholder="Örn: Beko Kahve Makinesi (Opsiyonel)">
+                            </div>
+                            <div class="input-group">
+                                <label>Pazaryeri / Kaynak:</label>
+                                <select id="freeMarketplace" class="form-input">
+                                    <option value="Trendyol">Trendyol</option>
+                                    <option value="Hepsiburada">Hepsiburada</option>
+                                    <option value="Amazon">Amazon</option>
+                                    <option value="Çiçeksepeti">Çiçeksepeti</option>
+                                    <option value="Pazarama">Pazarama</option>
+                                    <option value="N11">N11</option>
+                                    <option value="Doğrudan Mağaza">Doğrudan Mağaza</option>
+                                    <option value="Diğer">Diğer</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="scanner-input-box" style="margin-top: 24px;">
+                            <label for="freeScanInput">
+                                <span class="scan-label-title">🎯 Seri No / Barkod Taraması:</span>
+                                <span class="scan-label-hint">Okutulan kod anında mühürlenir ve diske yazılır</span>
+                            </label>
+                            <div class="input-with-actions">
+                                <input type="text" id="freeScanInput" class="scan-large-input" placeholder="Barkod veya Seri No Okutun..." autocomplete="off">
+                                <button class="btn-cam" id="btnToggleCamFree" title="Kamera ile Tara">📷</button>
+                                <button class="btn-primary" id="btnSaveFreeScan">Kaydet</button>
+                            </div>
+                            <div class="scan-feedback-alert" id="freeScanAlert" style="display: none;"></div>
+                        </div>
+                    </div>
+
+                    <!-- SON OKUTULANLAR TABLOSU -->
+                    <div class="recent-scans-card">
+                        <div class="recent-scans-header">
+                            <h3>Son Kaydedilen Barkodlar</h3>
+                            <button class="btn-secondary btn-sm" id="btnRefreshStats">Yenile 🔄</button>
+                        </div>
+                        <div class="recent-table-wrap">
+                            <table class="recent-table">
+                                <thead>
+                                    <tr>
+                                        <th>Kayıt Saati</th>
+                                        <th>Seri No / Barkod</th>
+                                        <th>Sipariş No</th>
+                                        <th>Müşteri</th>
+                                        <th>Pazaryeri</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="recentScansBody">
+                                    {% for r in stats.son_kayitlar %}
+                                    <tr>
+                                        <td>{{ r.kayit_tarihi }}</td>
+                                        <td><span class="code-pill">{{ r.barkod_seri_no }}</span></td>
+                                        <td>{{ r.siparis_no or '-' }}</td>
+                                        <td>{{ r.musteri_adi or '-' }}</td>
+                                        <td><span class="market-tag">{{ r.pazaryeri }}</span></td>
+                                    </tr>
+                                    {% else %}
+                                    <tr>
+                                        <td colspan="5" class="text-center text-muted">Henüz kayıt bulunmuyor.</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 3: ARAMA & KANIT ARŞİVİ -->
+            <section id="tab-arama" class="tab-pane">
+                <div class="search-archive-card">
+                    <div class="search-bar-grid">
+                        <div class="search-input-wrap">
+                            <label>Sorgulama Terimi:</label>
+                            <input type="text" id="archiveSearchInput" class="form-input" placeholder="Seri No, Sipariş No veya Müşteri Adı yazın...">
+                        </div>
+                        <div class="search-date-wrap">
+                            <label>Başlangıç Tarihi:</label>
+                            <input type="date" id="archiveStartDate" class="form-input">
+                        </div>
+                        <div class="search-date-wrap">
+                            <label>Bitiş Tarihi:</label>
+                            <input type="date" id="archiveEndDate" class="form-input">
+                        </div>
+                        <div class="search-actions-wrap">
+                            <button class="btn-primary" id="btnExecuteSearch">Sorgula 🔍</button>
+                            <button class="btn-secondary" id="btnDownloadExcelArchive">Excel İndir 📥</button>
+                        </div>
+                    </div>
+
+                    <div class="search-results-section">
+                        <div class="results-header">
+                            <h4>Arama Sonuçları (<span id="searchResultCount">0</span> Kayıt)</h4>
+                            <span class="results-hint">Tıklayarak resmi "Kanıt Belgesi" önizlemesi alabilirsiniz.</span>
+                        </div>
+                        <div class="search-table-wrap">
+                            <table class="search-table">
+                                <thead>
+                                    <tr>
+                                        <th>ID</th>
+                                        <th>Kayıt Tarihi</th>
+                                        <th>Barkod / Seri No</th>
+                                        <th>Sipariş No</th>
+                                        <th>Müşteri Adı</th>
+                                        <th>Ürün Adı</th>
+                                        <th>Pazaryeri</th>
+                                        <th>İşlem</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="searchResultsBody">
+                                    <tr>
+                                        <td colspan="8" class="text-center text-muted">Arama yapmak için yukarıdaki kutuyu kullanın veya 'Sorgula' butonuna basın.</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB 4: VERİ GÜVENLİĞİ & YEDEK -->
+            <section id="tab-guvenlik" class="tab-pane">
+                <div class="security-dashboard-grid">
+                    <div class="security-card">
+                        <div class="sec-icon">🛡️</div>
+                        <h3>Çift Katmanlı Arşiv Güvenliği</h3>
+                        <p>Barkodlarınızın asla kaybolmaması için sistem her okutmada 2 ayrı bağımsız yere yazar:</p>
+                        <ul class="sec-list">
+                            <li><strong>1. Katman (SQLite Veritabanı):</strong> <code>data/barkod_arsiv.db</code> üzerinde atomik işlem garantisiyle diske işlenir.</li>
+                            <li><strong>2. Katman (Günlük JSON Yedeği):</strong> <code>data/arsiv_gunluk/YYYY-MM-DD.json</code> dosyasına anında eklenir.</li>
+                            <li><strong>Sıfır Kayıp:</strong> Elektrik kesintisi, bilgisayarın kapanması veya çökme durumunda dahi kayıtlar güven altındadır.</li>
+                        </ul>
+                    </div>
+
+                    <div class="security-card">
+                        <div class="sec-icon">📊</div>
+                        <h3>Sistem İstatistikleri</h3>
+                        <div class="stat-boxes-grid">
+                            <div class="stat-box">
+                                <div class="stat-box-title">Toplam Kayıtlı Barkod</div>
+                                <div class="stat-box-num" id="statTotalScans">{{ stats.toplam_kayit }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-box-title">Bugün Okutulan</div>
+                                <div class="stat-box-num" id="statTodayScans">{{ stats.bugun_kayit }}</div>
+                            </div>
+                            <div class="stat-box">
+                                <div class="stat-box-title">Tekil Sipariş Sayısı</div>
+                                <div class="stat-box-num" id="statUniqueOrders">{{ stats.tekil_siparis }}</div>
+                            </div>
+                        </div>
+                        <div style="margin-top: 20px;">
+                            <button class="btn-primary" id="btnFullExcelExport">Tüm Arşivi Excel Olarak Yedekle 📥</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- KAMERA MODAL -->
+    <div class="modal-overlay" id="camModal" style="display: none;">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>📷 Kamera ile Barkod / Seri No Tara</h3>
+                <button class="modal-close-btn" id="btnCloseCamModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div id="cameraPreview" style="width: 100%; min-height: 280px; border-radius: 8px; overflow: hidden; background: #000;"></div>
+                <div class="camera-status" id="camStatusText">Kamera başlatılıyor...</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- KANIT BELGESİ MODAL -->
+    <div class="modal-overlay" id="proofModal" style="display: none;">
+        <div class="modal-box proof-modal-box">
+            <div class="modal-header">
+                <h3>📜 Resmi Çıkış Kanıt Belgesi</h3>
+                <button class="modal-close-btn" id="btnCloseProofModal">✕</button>
+            </div>
+            <div class="modal-body">
+                <div class="proof-certificate-card" id="printableProofArea">
+                    <div class="cert-header">
+                        <div class="cert-logo">🛡️ BARKOD & SERİ NO ÇIKIŞ DOĞRULAMA BELGESİ</div>
+                        <div class="cert-date" id="proofCertDate">Tarih: -</div>
+                    </div>
+                    <div class="cert-badge">GÖNDERİ MÜHÜRLÜ VE ONAYLI</div>
+                    <div class="cert-details-grid">
+                        <div class="cert-item">
+                            <span class="cert-label">Sipariş Numarası:</span>
+                            <span class="cert-val" id="proofOrderNo">-</span>
+                        </div>
+                        <div class="cert-item">
+                            <span class="cert-label">Alıcı / Müşteri:</span>
+                            <span class="cert-val" id="proofCustomer">-</span>
+                        </div>
+                        <div class="cert-item">
+                            <span class="cert-label">Ürün Adı:</span>
+                            <span class="cert-val" id="proofProduct">-</span>
+                        </div>
+                        <div class="cert-item">
+                            <span class="cert-label">Pazaryeri / Platform:</span>
+                            <span class="cert-val" id="proofMarketplace">-</span>
+                        </div>
+                        <div class="cert-item highlight-item">
+                            <span class="cert-label">KAYDEDİLEN SERİ NO / BARKOD:</span>
+                            <span class="cert-val code-val" id="proofBarcode">-</span>
+                        </div>
+                        <div class="cert-item">
+                            <span class="cert-label">Okutma / Kayıt Saati:</span>
+                            <span class="cert-val" id="proofTime">-</span>
+                        </div>
+                    </div>
+                    <div class="cert-footer">
+                        <p>Bu belge, ürünün depodan paketlenerek alıcıya sevk edildiğini kanıtlar. Sistem kayıt ID: <strong id="proofId">-</strong></p>
+                    </div>
+                </div>
+                <div class="cert-actions">
+                    <button class="btn-primary" id="btnPrintProof">Yazdır / PDF Kaydet 🖨️</button>
+                    <button class="btn-secondary" id="btnDismissProof">Kapat</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+</html>
