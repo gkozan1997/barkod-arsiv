@@ -260,7 +260,8 @@ function renderOrderCards(filterText = '') {
 
     loadedOrders.forEach((order, idx) => {
         if (filterText) {
-            const matchOrder = (order.siparis_no || '').toLowerCase().includes(filterText);
+            const matchKargo = (order.kargo_barkodu || '').toLowerCase().includes(filterText);
+            const matchOrder = (order.siparis_no || '').toLowerCase().includes(filterText) || matchKargo;
             const matchCustomer = (order.musteri_adi || '').toLowerCase().includes(filterText);
             if (!matchOrder && !matchCustomer) return;
         }
@@ -268,14 +269,18 @@ function renderOrderCards(filterText = '') {
         const isSelected = (idx === activeOrderIndex);
         const card = document.createElement('div');
         card.className = `order-card-item ${isSelected ? 'selected' : ''} ${order.tamamlandi ? 'completed' : ''}`;
+        const kargoGosterim = order.kargo_barkodu || order.siparis_no || 'Barkod Yok';
+        const kargoBilgi = order.kargo_firmasi ? ` • ${order.kargo_firmasi}` : '';
         card.innerHTML = `
             <div class="card-item-top">
-                <span class="card-order-no">${order.siparis_no}</span>
-                <span class="card-market-tag">${order.pazaryeri || 'Pazar'}</span>
+                <span class="card-order-no" style="font-size: 14px; color: #38BDF8;">🏷️ ${kargoGosterim}</span>
+                <span class="card-market-tag">${order.pazaryeri || 'Pazar'}${kargoBilgi}</span>
             </div>
             <div class="card-customer">${order.musteri_adi || 'Müşteri'}</div>
-            <div class="card-item-summary">
-                ${order.urunler.length} Kalem Ürün ${order.tamamlandi ? '• ✅ Tamamlandı' : ''}
+            <div class="card-item-summary" style="display: flex; justify-content: space-between;">
+                <span>${order.urunler.length} Kalem Ürün</span>
+                <span style="font-size: 11px; color: var(--text-muted);">Sipariş: ${order.siparis_no || '-'}</span>
+                ${order.tamamlandi ? '<span>✅</span>' : ''}
             </div>
         `;
         card.addEventListener('click', () => selectOrder(idx));
@@ -292,9 +297,10 @@ function selectOrder(index) {
     renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
 
     // Sağ paneli doldur
-    document.getElementById('activeMarketplace').textContent = order.pazaryeri || 'Pazaryeri';
-    document.getElementById('activeOrderTitle').textContent = `Sipariş: ${order.siparis_no}`;
-    document.getElementById('activeCustomerName').textContent = `Alıcı: ${order.musteri_adi || 'Bilinmiyor'}`;
+    const kargoBilgisi = order.kargo_firmasi ? ` (${order.kargo_firmasi})` : '';
+    document.getElementById('activeMarketplace').textContent = (order.pazaryeri || 'Pazaryeri') + kargoBilgisi;
+    document.getElementById('activeOrderTitle').textContent = `🏷️ Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
+    document.getElementById('activeCustomerName').textContent = `Alıcı: ${order.musteri_adi || 'Bilinmiyor'} • Sipariş No: ${order.siparis_no || '-'}`;
 
     renderActiveOrderItems();
     updateOrderProgress();
@@ -358,7 +364,20 @@ function updateOrderProgress() {
 }
 
 async function processOrderScan(barcode) {
-    if (activeOrderIndex === -1) return;
+    // 1. Akıllı Kargo Barkodu Tespiti: Okutulan kod mevcut paketlerden birinin kargo barkodu ise o paketi aç!
+    const matchedPkgIdx = loadedOrders.findIndex(o => (o.kargo_barkodu && o.kargo_barkodu.trim() === barcode.trim()) || (o.siparis_no && o.siparis_no.trim() === barcode.trim()));
+    if (matchedPkgIdx !== -1 && matchedPkgIdx !== activeOrderIndex) {
+        selectOrder(matchedPkgIdx);
+        playSuccessBeep();
+        const scanInput = document.getElementById('activeScanInput');
+        if (scanInput) { scanInput.value = ''; scanInput.focus(); }
+        return;
+    }
+
+    if (activeOrderIndex === -1) {
+        alert('Lütfen önce bir paket seçin veya kargo barkodunu okutun!');
+        return;
+    }
     const order = loadedOrders[activeOrderIndex];
     const alertBox = document.getElementById('orderScanAlert');
     const scanInput = document.getElementById('activeScanInput');
@@ -377,7 +396,8 @@ async function processOrderScan(barcode) {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                siparis_no: order.siparis_no,
+                kargo_barkodu: order.kargo_barkodu || '',
+                siparis_no: order.siparis_no || '',
                 musteri_adi: order.musteri_adi,
                 urun_adi: pendingItem.urun_adi,
                 barkod_seri_no: barcode,
@@ -458,6 +478,7 @@ async function executeFreeScan() {
         return;
     }
 
+    const kargoBarcode = document.getElementById('freeKargoBarcode')?.value.trim() || '';
     const orderNo = document.getElementById('freeOrderNo').value.trim();
     const customer = document.getElementById('freeCustomerName').value.trim();
     const product = document.getElementById('freeProductName').value.trim();
@@ -468,6 +489,7 @@ async function executeFreeScan() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+                kargo_barkodu: kargoBarcode,
                 siparis_no: orderNo,
                 musteri_adi: customer,
                 urun_adi: product,
@@ -510,7 +532,7 @@ function addRecentScanRow(record) {
     tr.innerHTML = `
         <td>${record.kayit_tarihi}</td>
         <td><span class="code-pill">${record.barkod_seri_no}</span></td>
-        <td>${record.siparis_no || '-'}</td>
+        <td><strong>${record.kargo_barkodu || record.siparis_no || '-'}</strong></td>
         <td>${record.musteri_adi || '-'}</td>
         <td><span class="market-tag">${record.pazaryeri || 'Diğer'}</span></td>
     `;
@@ -589,8 +611,9 @@ async function executeArchiveSearch() {
                 tr.innerHTML = `
                     <td>#${r.id}</td>
                     <td>${r.kayit_tarihi}</td>
+                    <td><strong style="color: #38BDF8;">🏷️ ${r.kargo_barkodu || '-'}</strong></td>
                     <td><span class="code-pill">${r.barkod_seri_no}</span></td>
-                    <td><strong>${r.siparis_no || '-'}</strong></td>
+                    <td>${r.siparis_no || '-'}</td>
                     <td>${r.musteri_adi || '-'}</td>
                     <td>${r.urun_adi || '-'}</td>
                     <td><span class="market-tag">${r.pazaryeri}</span></td>
@@ -615,6 +638,8 @@ window.openProofModal = async function(recordId) {
             const r = res.record;
             document.getElementById('proofId').textContent = r.id;
             document.getElementById('proofCertDate').textContent = 'Tarih: ' + r.kayit_tarihi;
+            const proofKargoEl = document.getElementById('proofKargoBarcode');
+            if (proofKargoEl) proofKargoEl.textContent = r.kargo_barkodu || r.siparis_no || '-';
             document.getElementById('proofOrderNo').textContent = r.siparis_no || 'Belirtilmedi';
             document.getElementById('proofCustomer').textContent = r.musteri_adi || 'Belirtilmedi';
             document.getElementById('proofProduct').textContent = r.urun_adi || 'Genel Ürün';

@@ -102,6 +102,7 @@ def record_barcode():
     if not barkod_seri_no:
         return jsonify({'status': 'error', 'message': 'Barkod / Seri No boş olamaz'}), 400
 
+    kargo_barkodu = data.get('kargo_barkodu', '').strip()
     siparis_no = data.get('siparis_no', '').strip()
     musteri_adi = data.get('musteri_adi', '').strip()
     urun_adi = data.get('urun_adi', '').strip()
@@ -110,6 +111,7 @@ def record_barcode():
     notlar = data.get('notlar', '').strip()
 
     record_data, is_dup, dup_info = add_barcode_record(
+        kargo_barkodu=kargo_barkodu,
         siparis_no=siparis_no,
         musteri_adi=musteri_adi,
         urun_adi=urun_adi,

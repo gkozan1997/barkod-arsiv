@@ -83,8 +83,8 @@
                     <div class="order-list-col">
                         <div class="col-card">
                             <div class="col-card-header">
-                                <h3>Siparişler (<span id="loadedOrderCount">0</span>)</h3>
-                                <input type="text" id="orderFilterInput" class="filter-input" placeholder="Sipariş / Müşteri Ara...">
+                                <h3>Paketler / Kargo Barkodları (<span id="loadedOrderCount">0</span>)</h3>
+                                <input type="text" id="orderFilterInput" class="filter-input" placeholder="Kargo Barkodu / Alıcı Ara...">
                             </div>
                             <div class="order-cards-scroll" id="orderCardsContainer">
                                 <div class="empty-state">
@@ -100,8 +100,8 @@
                             <div class="active-order-header">
                                 <div>
                                     <span class="order-marketplace-badge" id="activeMarketplace">Pazaryeri</span>
-                                    <h2 class="active-order-title" id="activeOrderTitle">Sipariş Seçilmedi</h2>
-                                    <p class="active-order-customer" id="activeCustomerName">Lütfen soldaki listeden bir siparişe tıklayın</p>
+                                    <h2 class="active-order-title" id="activeOrderTitle">Paket Seçilmedi</h2>
+                                    <p class="active-order-customer" id="activeCustomerName">Lütfen soldaki listeden veya kargo barkodunu okutarak bir paket seçin</p>
                                 </div>
                                 <div class="order-progress-box">
                                     <div class="progress-percent" id="orderProgressPercent">%0</div>
@@ -172,8 +172,12 @@
 
                         <div class="free-inputs-grid">
                             <div class="input-group">
-                                <label>Sipariş Numarası / Takip Kodu:</label>
-                                <input type="text" id="freeOrderNo" class="form-input" placeholder="Örn: 948291041 (Opsiyonel)">
+                                <label>Kargo Barkodu / Takip No:</label>
+                                <input type="text" id="freeKargoBarcode" class="form-input" placeholder="Örn: 7330037763157327 (Öncelikli)">
+                            </div>
+                            <div class="input-group">
+                                <label>Sipariş Numarası:</label>
+                                <input type="text" id="freeOrderNo" class="form-input" placeholder="Örn: 11680652301 (Opsiyonel)">
                             </div>
                             <div class="input-group">
                                 <label>Müşteri Adı / Alıcı:</label>
@@ -224,7 +228,7 @@
                                     <tr>
                                         <th>Kayıt Saati</th>
                                         <th>Seri No / Barkod</th>
-                                        <th>Sipariş No</th>
+                                        <th>Kargo Barkodu</th>
                                         <th>Müşteri</th>
                                         <th>Pazaryeri</th>
                                     </tr>
@@ -256,7 +260,7 @@
                     <div class="search-bar-grid">
                         <div class="search-input-wrap">
                             <label>Sorgulama Terimi:</label>
-                            <input type="text" id="archiveSearchInput" class="form-input" placeholder="Seri No, Sipariş No veya Müşteri Adı yazın...">
+                            <input type="text" id="archiveSearchInput" class="form-input" placeholder="Kargo Barkodu, Seri No veya Alıcı Adı yazın...">
                         </div>
                         <div class="search-date-wrap">
                             <label>Başlangıç Tarihi:</label>
@@ -283,7 +287,8 @@
                                     <tr>
                                         <th>ID</th>
                                         <th>Kayıt Tarihi</th>
-                                        <th>Barkod / Seri No</th>
+                                        <th>Kargo Barkodu</th>
+                                        <th>Seri No / Barkod</th>
                                         <th>Sipariş No</th>
                                         <th>Müşteri Adı</th>
                                         <th>Ürün Adı</th>
@@ -371,6 +376,10 @@
                     </div>
                     <div class="cert-badge">GÖNDERİ MÜHÜRLÜ VE ONAYLI</div>
                     <div class="cert-details-grid">
+                        <div class="cert-item">
+                            <span class="cert-label">Kargo Barkodu:</span>
+                            <span class="cert-val code-val" id="proofKargoBarcode" style="font-size:15px; color:#38BDF8;">-</span>
+                        </div>
                         <div class="cert-item">
                             <span class="cert-label">Sipariş Numarası:</span>
                             <span class="cert-val" id="proofOrderNo">-</span>

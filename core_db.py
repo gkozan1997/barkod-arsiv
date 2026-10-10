@@ -49,6 +49,7 @@ def init_db():
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS barkod_kayitlari (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
+            kargo_barkodu TEXT,
             siparis_no TEXT,
             musteri_adi TEXT,
             urun_adi TEXT,
@@ -61,6 +62,13 @@ def init_db():
             durum TEXT DEFAULT 'Gecerli'
         )
     ''')
+    # Kolon var mı kontrolü (Migration)
+    cursor.execute("PRAGMA table_info(barkod_kayitlari)")
+    cols = [r[1] for r in cursor.fetchall()]
+    if 'kargo_barkodu' not in cols:
+        cursor.execute("ALTER TABLE barkod_kayitlari ADD COLUMN kargo_barkodu TEXT")
+
+    cursor.execute('CREATE INDEX IF NOT EXISTS idx_kargo_barkod ON barkod_kayitlari(kargo_barkodu)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_barkod ON barkod_kayitlari(barkod_seri_no)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_siparis ON barkod_kayitlari(siparis_no)')
     cursor.execute('CREATE INDEX IF NOT EXISTS idx_gun ON barkod_kayitlari(kayit_gunu)')
@@ -74,7 +82,7 @@ def check_duplicate(barkod_seri_no):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute('''
-            SELECT id, siparis_no, musteri_adi, urun_adi, barkod_seri_no, kayit_tarihi, pazaryeri
+            SELECT id, kargo_barkodu, siparis_no, musteri_adi, urun_adi, barkod_seri_no, kayit_tarihi, pazaryeri
             FROM barkod_kayitlari
             WHERE barkod_seri_no = ? AND durum = 'Gecerli'
             ORDER BY id DESC LIMIT 1
@@ -87,11 +95,12 @@ def check_duplicate(barkod_seri_no):
         print(f"Mükerrer kontrol hatası: {e}")
     return False, None
 
-def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazaryeri='Bilinmiyor', okutma_yontemi='El Terminali', notlar=''):
+def add_barcode_record(kargo_barkodu='', siparis_no='', musteri_adi='', urun_adi='', barkod_seri_no='', pazaryeri='Bilinmiyor', okutma_yontemi='El Terminali', notlar=''):
     now = get_now_istanbul()
     kayit_tarihi = now.strftime('%Y-%m-%d %H:%M:%S')
     kayit_gunu = now.strftime('%Y-%m-%d')
     barkod_temiz = str(barkod_seri_no).strip()
+    kargo_temiz = str(kargo_barkodu or '').strip()
 
     is_dup, dup_info = check_duplicate(barkod_temiz)
 
@@ -99,10 +108,11 @@ def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazary
     cursor = conn.cursor()
     cursor.execute('''
         INSERT INTO barkod_kayitlari (
-            siparis_no, musteri_adi, urun_adi, barkod_seri_no,
+            kargo_barkodu, siparis_no, musteri_adi, urun_adi, barkod_seri_no,
             pazaryeri, kayit_tarihi, kayit_gunu, okutma_yontemi, notlar, durum
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'Gecerli')
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'Gecerli')
     ''', (
+        kargo_temiz,
         (siparis_no or '').strip(),
         (musteri_adi or '').strip(),
         (urun_adi or '').strip(),
@@ -119,6 +129,7 @@ def add_barcode_record(siparis_no, musteri_adi, urun_adi, barkod_seri_no, pazary
 
     record_data = {
         'id': record_id,
+        'kargo_barkodu': kargo_temiz,
         'siparis_no': siparis_no or '',
         'musteri_adi': musteri_adi or '',
         'urun_adi': urun_adi or '',
@@ -160,8 +171,8 @@ def search_records(query='', start_date='', end_date='', limit=200):
 
     if query:
         q = f"%{query.strip()}%"
-        sql += " AND (barkod_seri_no LIKE ? OR siparis_no LIKE ? OR musteri_adi LIKE ? OR urun_adi LIKE ?)"
-        params.extend([q, q, q, q])
+        sql += " AND (kargo_barkodu LIKE ? OR barkod_seri_no LIKE ? OR siparis_no LIKE ? OR musteri_adi LIKE ? OR urun_adi LIKE ?)"
+        params.extend([q, q, q, q, q])
 
     if start_date:
         sql += " AND kayit_gunu >= ?"
@@ -193,24 +204,24 @@ def get_stats():
         cursor.execute("SELECT COUNT(*) FROM barkod_kayitlari WHERE kayit_gunu = ? AND durum = 'Gecerli'", (bugun_str,))
         bugun_kayit = cursor.fetchone()[0]
 
-        cursor.execute("SELECT COUNT(DISTINCT siparis_no) FROM barkod_kayitlari WHERE siparis_no != '' AND durum = 'Gecerli'")
-        tekil_siparis = cursor.fetchone()[0]
+        cursor.execute("SELECT COUNT(DISTINCT CASE WHEN kargo_barkodu != '' THEN kargo_barkodu ELSE siparis_no END) FROM barkod_kayitlari WHERE durum = 'Gecerli'")
+        tekil_paket = cursor.fetchone()[0]
 
         cursor.execute("SELECT * FROM barkod_kayitlari WHERE durum = 'Gecerli' ORDER BY id DESC LIMIT 15")
         son_kayitlar = [dict(r) for r in cursor.fetchall()]
 
         conn.close()
     except Exception as e:
-        print(f"Stats okuma hatası: {e}")
+        print(f"Stats hatası: {e}")
         toplam_kayit = 0
         bugun_kayit = 0
-        tekil_siparis = 0
+        tekil_paket = 0
         son_kayitlar = []
 
     return {
         'toplam_kayit': toplam_kayit,
         'bugun_kayit': bugun_kayit,
-        'tekil_siparis': tekil_siparis,
+        'tekil_siparis': tekil_paket,
         'bugun_tarih': bugun_str,
         'son_kayitlar': son_kayitlar
     }
@@ -226,9 +237,9 @@ def get_record_by_id(record_id):
 def export_records_to_excel(records, output_path=None):
     wb = openpyxl.Workbook()
     ws = wb.active
-    ws.title = "Barkod Kayıtları"
+    ws.title = "Kargo ve Barkod Kayıtları"
 
-    headers = ["ID", "Kayıt Tarihi", "Sipariş No", "Müşteri Adı", "Ürün Adı", "Barkod / Seri No", "Pazaryeri", "Okutma Yöntemi", "Notlar"]
+    headers = ["ID", "Kayıt Tarihi", "Kargo Barkodu", "Sipariş No", "Müşteri Adı", "Ürün Adı", "Ürün Seri No / Barkod", "Pazaryeri", "Okutma Yöntemi"]
     ws.append(headers)
 
     header_font = Font(name="Segoe UI", size=11, bold=True, color="FFFFFF")
@@ -256,13 +267,13 @@ def export_records_to_excel(records, output_path=None):
         ws.append([
             r.get('id', ''),
             r.get('kayit_tarihi', ''),
+            r.get('kargo_barkodu', ''),
             r.get('siparis_no', ''),
             r.get('musteri_adi', ''),
             r.get('urun_adi', ''),
             r.get('barkod_seri_no', ''),
             r.get('pazaryeri', ''),
-            r.get('okutma_yontemi', ''),
-            r.get('notlar', '')
+            r.get('okutma_yontemi', '')
         ])
         ws.row_dimensions[row_idx].height = 22
         is_even = (row_idx % 2 == 0)
@@ -273,15 +284,15 @@ def export_records_to_excel(records, output_path=None):
             cell.border = thin_border
             if is_even:
                 cell.fill = zebra_fill
-            if col_idx in [1, 2, 3, 7, 8]:
+            if col_idx in [1, 2, 3, 4, 8, 9]:
                 cell.alignment = center_align
-            elif col_idx == 6:
+            elif col_idx in [3, 7]:
                 cell.alignment = center_align
                 cell.font = Font(name="Consolas", size=10.5, bold=True, color="1E3A8A")
             else:
                 cell.alignment = left_align
 
-    col_widths = {1: 8, 2: 20, 3: 18, 4: 25, 5: 35, 6: 25, 7: 15, 8: 16, 9: 20}
+    col_widths = {1: 8, 2: 20, 3: 22, 4: 18, 5: 25, 6: 35, 7: 25, 8: 15, 9: 16}
     for col_idx, width in col_widths.items():
         col_letter = openpyxl.utils.get_column_letter(col_idx)
         ws.column_dimensions[col_letter].width = width

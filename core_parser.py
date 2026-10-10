@@ -18,11 +18,9 @@ def find_column_index(headers, possible_names):
     clean_headers = [normalize_header(h) for h in headers]
     for name in possible_names:
         n_clean = normalize_header(name)
-        # 1. Tam eşleşme önceliği
         for idx, h_clean in enumerate(clean_headers):
             if h_clean == n_clean:
                 return idx
-        # 2. İçerme önceliği
         for idx, h_clean in enumerate(clean_headers):
             if n_clean in h_clean:
                 return idx
@@ -66,7 +64,6 @@ def parse_order_file(file_path):
     if not rows:
         return []
 
-    # Başlık satırını bul
     header_idx = -1
     for i in range(min(6, len(rows))):
         row_str = " ".join([normalize_header(c) for c in rows[i] if c is not None])
@@ -80,12 +77,14 @@ def parse_order_file(file_path):
     headers = [str(c) if c is not None else "" for c in rows[header_idx]]
     data_rows = rows[header_idx + 1:]
 
-    col_siparis = find_column_index(headers, ['siparisno', 'siparisnumarasi', 'paketno', 'ordernumber', 'orderno'])
+    col_kargo_barkod = find_column_index(headers, ['kargobarkod', 'kargotakipno', 'takipno', 'barkodkargo'])
+    col_kargo_firmasi = find_column_index(headers, ['kargofirmasi', 'kargo', 'carrier'])
+    col_siparis = find_column_index(headers, ['siparisno', 'siparisnumarasi', 'paketno', 'orderno'])
     col_paket = find_column_index(headers, ['paketno'])
-    col_musteri = find_column_index(headers, ['sevkmusteri', 'faturamusteri', 'musteriadi', 'alici', 'adsoyad', 'customer'])
-    col_urun = find_column_index(headers, ['urun', 'urunadi', 'productname', 'ilanbasligi', 'itemname'])
-    col_adet = find_column_index(headers, ['adet', 'miktar', 'siparisadedi', 'quantity', 'qty'])
-    col_pazar = find_column_index(headers, ['pazaryeri', 'pazaryeriadi', 'platform', 'marketplace'])
+    col_musteri = find_column_index(headers, ['sevkmusteri', 'faturamusteri', 'musteriadi', 'alici', 'adsoyad'])
+    col_urun = find_column_index(headers, ['urun', 'urunadi', 'productname'])
+    col_adet = find_column_index(headers, ['adet', 'miktar', 'siparisadedi', 'quantity'])
+    col_pazar = find_column_index(headers, ['pazaryeri', 'pazaryeriadi', 'platform'])
     col_stok = find_column_index(headers, ['stokkodu', 'sku'])
     col_gtin = find_column_index(headers, ['gtin', 'gtinbarkod', 'barkod'])
 
@@ -104,13 +103,15 @@ def parse_order_file(file_path):
     elif "n11" in filename_lower:
         default_pazar = "N11"
 
-    orders_map = {}
+    packages_map = {}
     for r_idx, r in enumerate(data_rows):
         if not r or not any(r):
             continue
 
-        siparis_no = str(r[col_siparis]).strip() if col_siparis is not None and col_siparis < len(r) and r[col_siparis] is not None else f"SIP-{r_idx+1}"
+        kargo_barkodu = str(r[col_kargo_barkod]).strip() if col_kargo_barkod is not None and col_kargo_barkod < len(r) and r[col_kargo_barkod] is not None else ""
+        siparis_no = str(r[col_siparis]).strip() if col_siparis is not None and col_siparis < len(r) and r[col_siparis] is not None else ""
         paket_no = str(r[col_paket]).strip() if col_paket is not None and col_paket < len(r) and r[col_paket] is not None else ""
+        kargo_firmasi = str(r[col_kargo_firmasi]).strip() if col_kargo_firmasi is not None and col_kargo_firmasi < len(r) and r[col_kargo_firmasi] is not None else ""
         musteri_adi = str(r[col_musteri]).strip() if col_musteri is not None and col_musteri < len(r) and r[col_musteri] is not None else "Belirtilmemiş"
         urun_adi = str(r[col_urun]).strip() if col_urun is not None and col_urun < len(r) and r[col_urun] is not None else "Ürün"
         pazaryeri = str(r[col_pazar]).strip() if col_pazar is not None and col_pazar < len(r) and r[col_pazar] is not None else default_pazar
@@ -126,18 +127,24 @@ def parse_order_file(file_path):
             except Exception:
                 adet = 1
 
-        if siparis_no not in orders_map:
-            orders_map[siparis_no] = {
+        # Kargo Barkodu öncelikli paket anahtarı
+        key = kargo_barkodu if kargo_barkodu else (paket_no if paket_no else (siparis_no if siparis_no else f"PAKET-{r_idx+1}"))
+        primary_kargo_code = kargo_barkodu if kargo_barkodu else key
+
+        if key not in packages_map:
+            packages_map[key] = {
+                'kargo_barkodu': primary_kargo_code,
                 'siparis_no': siparis_no,
                 'paket_no': paket_no,
+                'kargo_firmasi': kargo_firmasi,
                 'musteri_adi': musteri_adi,
                 'pazaryeri': pazaryeri,
                 'urunler': [],
                 'tamamlandi': False
             }
 
-        item_id = f"item_{len(orders_map[siparis_no]['urunler']) + 1}"
-        orders_map[siparis_no]['urunler'].append({
+        item_id = f"item_{len(packages_map[key]['urunler']) + 1}"
+        packages_map[key]['urunler'].append({
             'item_id': item_id,
             'urun_adi': urun_adi,
             'stok_kod': stok_kod,
@@ -148,4 +155,4 @@ def parse_order_file(file_path):
             'tamamlandi': False
         })
 
-    return list(orders_map.values())
+    return list(packages_map.values())
