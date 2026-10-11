@@ -35,39 +35,61 @@ def index():
 
 @app.route('/api/load-recent-download', methods=['POST'])
 def load_recent_download():
-    """Yerelde İndirilenler klasöründeki en güncel sipariş dosyasını otomatik yükler."""
+    """Yerelde İndirilenler klasöründeki en güncel pazaryeri veya e-ticaret web sipariş dosyasını otomatik yükler."""
     downloads_dir = os.path.join(os.path.expanduser('~'), 'Downloads')
     if not os.path.exists(downloads_dir):
         return jsonify({'status': 'error', 'message': 'İndirilenler klasörü bulunamadı'}), 404
 
-    recent_files = []
+    recent_candidates = []
     for f in os.listdir(downloads_dir):
         if f.startswith('~') or f.startswith('.'):
             continue
-        if f.lower().endswith(('.xlsx', '.xls', '.csv')) and any(w in f.lower() for w in ['sipari', 'order']):
-            fp = os.path.join(downloads_dir, f)
-            try:
-                recent_files.append((os.path.getmtime(fp), fp, f))
-            except Exception:
-                pass
+        fl = f.lower()
+        if not fl.endswith(('.xlsx', '.xls', '.csv')):
+            continue
+        # Sistem kendi ürettiği çıktı dosyalarını hariç tutar
+        if any(fl.startswith(prefix) for prefix in ['barkod_serino_kayitlari_', 'urun_toplama_listesi_', 'beko_urun_toplama_']):
+            continue
+        fp = os.path.join(downloads_dir, f)
+        try:
+            mtime = os.path.getmtime(fp)
+            recent_candidates.append((mtime, fp, f))
+        except Exception:
+            pass
 
-    if not recent_files:
+    if not recent_candidates:
         return jsonify({'status': 'error', 'message': 'İndirilenler klasöründe sipariş dosyası bulunamadı'}), 404
 
-    recent_files.sort(key=lambda x: x[0], reverse=True)
-    latest_fp = recent_files[0][1]
-    latest_name = recent_files[0][2]
+    recent_candidates.sort(key=lambda x: x[0], reverse=True)
+
+    # En son indirilen geçerli sipariş dosyasını otomatik tara ve bul
+    selected_fp = None
+    selected_name = None
+    orders = []
+
+    for _, fp, fname in recent_candidates[:10]:
+        try:
+            parsed = parse_order_file(fp)
+            if parsed and len(parsed) > 0:
+                selected_fp = fp
+                selected_name = fname
+                orders = parsed
+                break
+        except Exception:
+            continue
+
+    if not selected_fp or not orders:
+        return jsonify({'status': 'error', 'message': 'İndirilenler klasöründe geçerli sipariş içeren dosya bulunamadı'}), 404
 
     try:
-        orders = parse_order_file(latest_fp)
         try:
-            save_active_orders_file(latest_name, orders)
-            save_orders_to_cloud(latest_name, orders)
+            save_active_orders_file(selected_name, orders)
+            save_orders_to_cloud(selected_name, orders)
         except Exception:
             pass
         return jsonify({
             'status': 'success',
-            'filename': latest_name,
+            'filename': selected_name,
             'order_count': len(orders),
             'orders': orders
         })

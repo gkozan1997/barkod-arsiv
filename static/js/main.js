@@ -491,12 +491,12 @@ function setScanStep(step) {
         if (chip1) chip1.className = 'step-chip active';
         if (chip2) chip2.className = 'step-chip';
         if (title) {
-            title.innerHTML = '📦 1. Adım: Kargo Barkodunu Okutun';
+            title.innerHTML = '📦 1. Adım: Kargo Barkodu / Sipariş No Okutun';
             title.style.color = '#38BDF8';
         }
-        if (hint) hint.textContent = 'Kolideki kargo etiketini okutun, müşteri ve ürünler otomatik açılsın';
+        if (hint) hint.textContent = 'Kolideki kargo etiketini veya sipariş numarasını (Örn: 1099201) okutun, paket açılsın';
         input.className = 'scan-large-input step1-mode';
-        input.placeholder = '1. ADIM: Koli Kargo Barkodunu Okutun...';
+        input.placeholder = '1. ADIM: Kargo Barkodu veya Sipariş No Okutun...';
     } else {
         if (chip1) chip1.className = 'step-chip';
         if (chip2) chip2.className = 'step-chip active-step2';
@@ -777,8 +777,11 @@ function renderOrderCards(filterText = '') {
         const isSelected = (idx === activeOrderIndex);
         const card = document.createElement('div');
         card.className = `order-card-item ${isSelected ? 'selected' : ''} ${isCompleted ? 'completed' : ''}`;
-        const kargoGosterim = order.kargo_barkodu || order.siparis_no || 'Barkod Yok';
+        
+        const isWebOrder = order.is_web_order || (order.kargo_barkodu === order.siparis_no);
+        const kargoGosterim = isWebOrder ? `Sipariş: ${order.siparis_no}` : (order.kargo_barkodu || order.siparis_no || 'Barkod Yok');
         const kargoBilgi = order.kargo_firmasi ? ` • ${order.kargo_firmasi}` : '';
+        const sehirText = (order.sehir || order.ilce) ? ` • ${[order.ilce, order.sehir].filter(Boolean).join('/')}` : '';
 
         const statusBadge = isCompleted 
             ? '<span class="status-badge-done">Tamamlandı ✅</span>'
@@ -791,7 +794,7 @@ function renderOrderCards(filterText = '') {
                 <span class="card-order-no" style="font-size: 14.5px; color: #38BDF8;">📦 ${kargoGosterim}</span>
                 <span class="card-market-tag">${order.pazaryeri || 'Pazar'}${kargoBilgi}</span>
             </div>
-            <div class="card-customer" style="font-size: 15px; font-weight: 700; color: #F1F5F9;">${order.musteri_adi || 'Müşteri'}</div>
+            <div class="card-customer" style="font-size: 15px; font-weight: 700; color: #F1F5F9;">${order.musteri_adi || 'Müşteri'}${sehirText}</div>
             <div class="card-item-summary" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
                 <span style="font-size: 12px; color: var(--text-muted);">${itemCount} Kalem Ürün • Sipariş: ${order.siparis_no || '-'}</span>
                 ${statusBadge}
@@ -818,15 +821,19 @@ function selectOrder(index) {
 
     renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
 
+    const isWebOrder = order.is_web_order || (order.kargo_barkodu === order.siparis_no);
     const kargoBilgisi = order.kargo_firmasi ? ` (${order.kargo_firmasi})` : '';
     const mBadge = document.getElementById('activeMarketplace');
     if (mBadge) mBadge.textContent = (order.pazaryeri || 'Pazaryeri') + kargoBilgisi;
 
     const oTitle = document.getElementById('activeOrderTitle');
-    if (oTitle) oTitle.textContent = `📦 Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
+    const displayCode = isWebOrder ? `Sipariş No: ${order.siparis_no}` : `Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
+    if (oTitle) oTitle.textContent = `📦 ${displayCode}`;
 
+    const sehirBilgi = (order.sehir || order.ilce) ? ` (${[order.ilce, order.sehir].filter(Boolean).join(' / ')})` : '';
+    const telBilgi = order.telefon ? ` • Tel: ${order.telefon}` : '';
     const cName = document.getElementById('activeCustomerName');
-    if (cName) cName.textContent = `Alıcı: ${order.musteri_adi || 'Bilinmiyor'} • Sipariş No: ${order.siparis_no || '-'}`;
+    if (cName) cName.textContent = `Alıcı: ${order.musteri_adi || 'Bilinmiyor'}${sehirBilgi}${telBilgi} • Sipariş No: ${order.siparis_no || '-'}`;
 
     renderActiveOrderItems();
     updateOrderProgress();
@@ -834,7 +841,7 @@ function selectOrder(index) {
     setScanStep(2);
 
     const alertBox = document.getElementById('orderScanAlert');
-    showAlert(alertBox, 'info', `🎯 Seçilen Paket: ${order.musteri_adi} (Kargo: ${order.kargo_barkodu || order.siparis_no}). Lütfen ürün seri numarasını okutun.`);
+    showAlert(alertBox, 'info', `🎯 Seçilen Paket: ${order.musteri_adi} (${displayCode}). Lütfen ürün seri numarasını okutun.`);
 }
 
 function renderActiveOrderItems() {

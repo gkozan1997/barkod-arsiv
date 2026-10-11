@@ -1,0 +1,16 @@
+[
+  {
+    "id": 2,
+    "kargo_barkodu": "1099201",
+    "siparis_no": "1099201",
+    "musteri_adi": "ÇİĞDEM KÜSBECİ",
+    "urun_adi": "Beko 31525 S Split Klima",
+    "barkod_seri_no": "TEST-SN-998877",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-11 07:43:28",
+    "kayit_gunu": "2026-10-11",
+    "okutma_yontemi": "El Terminali",
+    "notlar": "",
+    "is_duplicate": false
+  }
+]

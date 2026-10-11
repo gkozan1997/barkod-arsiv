@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.4">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.5">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -107,8 +107,8 @@
                         <div class="active-order-header">
                             <div>
                                 <span class="order-marketplace-badge" id="activeMarketplace">Paket Bekleniyor</span>
-                                <h2 class="active-order-title" id="activeOrderTitle">📦 Kargo Barkodunu Okutun</h2>
-                                <p class="active-order-customer" id="activeCustomerName">Kolideki kargo etiketini okutun veya yukarıdaki 'Paketler' sekmesinden bir paket seçin.</p>
+                                <h2 class="active-order-title" id="activeOrderTitle">📦 Kargo Barkodu / Sipariş No Okutun</h2>
+                                <p class="active-order-customer" id="activeCustomerName">Kolideki kargo etiketini veya sipariş numarasını (Örn: 1099201) okutun ya da 'Paketler' sekmesinden bir paket seçin.</p>
                             </div>
                             <div style="display: flex; align-items: center; gap: 14px;">
                                 <div class="header-stat-box" id="headerStatBox" title="Toplam Okutulan Ürün / Toplam Sipariş">
@@ -130,8 +130,8 @@
                             <div class="step-chip active" id="stepChip1">
                                 <span class="step-badge">1</span>
                                 <div class="step-info">
-                                    <strong>1. ADIM: Kargo Barkodu</strong>
-                                    <small>Müşteri & Koliyi Aç</small>
+                                    <strong>1. ADIM: Kargo Barkodu / Sipariş No</strong>
+                                    <small>Koli veya Sipariş No Okutun</small>
                                 </div>
                             </div>
                             <div class="step-divider">➔</div>
@@ -146,11 +146,11 @@
 
                         <div class="scanner-input-box" id="scannerContainerBox">
                             <label for="activeScanInput">
-                                <span class="scan-label-title" id="scanLabelTitle">📦 1. Adım: Kargo Barkodunu Okutun</span>
-                                <span class="scan-label-hint" id="scanLabelHint">Kolideki kargo etiketini okutun, müşteri ve ürünler otomatik açılsın</span>
+                                <span class="scan-label-title" id="scanLabelTitle">📦 1. Adım: Kargo Barkodu / Sipariş No Okutun</span>
+                                <span class="scan-label-hint" id="scanLabelHint">Kolideki kargo etiketini veya sipariş numarasını (Örn: 1099201) okutun, paket açılsın</span>
                             </label>
                             <div class="input-with-actions">
-                                <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="1. ADIM: Koli Kargo Barkodunu Okutun..." autocomplete="off">
+                                <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="1. ADIM: Kargo Barkodu veya Sipariş No Okutun..." autocomplete="off">
                                 
                                 <!-- CANLI OKUTMA SAYACI ROZETİ (GİRİŞ KUTUSUNUN TAM YANINDA) -->
                                 <div class="scan-counter-badge" id="scanCounterBadge" title="Şu ana kadar okutulan toplam ürün adedi">
@@ -560,6 +560,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.4"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.5"></script>
 </body>
 </html>
