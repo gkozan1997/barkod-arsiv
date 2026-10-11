@@ -1,3 +1,82 @@
+
+// --------------------------------------------------------------
+// CANLI OKUTMA SAYACI & TEYİT MOTORU
+// --------------------------------------------------------------
+function getTotalScannedUnitsCount() {
+    let totalDone = 0;
+    if (Array.isArray(loadedOrders)) {
+        loadedOrders.forEach(order => {
+            if (order.urunler) {
+                order.urunler.forEach(item => {
+                    if (item.tamamlandi) {
+                        totalDone += (item.okunan_adet || item.adet || 1);
+                    }
+                });
+            }
+        });
+    }
+    return totalDone;
+}
+
+function getTotalExcelUnitsCount() {
+    let total = 0;
+    if (Array.isArray(loadedOrders)) {
+        loadedOrders.forEach(order => {
+            if (order.urunler) {
+                order.urunler.forEach(item => {
+                    total += (item.adet || 1);
+                });
+            }
+        });
+    }
+    return total;
+}
+
+function updateScanCounters(lastCode = '', lastName = '') {
+    const totalDone = getTotalScannedUnitsCount();
+    const totalAll = getTotalExcelUnitsCount();
+
+    // 1. Canlı giriş kutusu yanındaki sayaç rozeti
+    const counterVal = document.getElementById('scanCounterVal');
+    if (counterVal) {
+        counterVal.textContent = totalDone;
+    }
+    const badge = document.getElementById('scanCounterBadge');
+    if (badge && lastCode) {
+        badge.classList.remove('pulse-hit');
+        void badge.offsetWidth;
+        badge.classList.add('pulse-hit');
+    }
+
+    // 2. Header sayacı
+    const headerUnits = document.getElementById('headerUnitsCount');
+    if (headerUnits) {
+        headerUnits.textContent = totalAll > 0 ? `${totalDone} / ${totalAll}` : totalDone;
+    }
+
+    // 3. Kamera modali içi sayaç
+    const camVal = document.getElementById('camCounterVal');
+    if (camVal) {
+        camVal.textContent = totalDone;
+    }
+
+    // 4. Canlı Teyit Şeridi
+    const confirmBar = document.getElementById('scanConfirmationBar');
+    if (confirmBar) {
+        if (lastCode) {
+            confirmBar.style.display = 'flex';
+            const codeEl = document.getElementById('confirmBarcodeCode');
+            if (codeEl) codeEl.textContent = lastCode;
+            const nameEl = document.getElementById('confirmProductName');
+            if (nameEl) nameEl.textContent = lastName ? `• ${lastName}` : '';
+            const tagEl = document.getElementById('confirmCountTag');
+            if (tagEl) tagEl.textContent = `🎯 Okutulan: ${totalDone} Adet`;
+        } else if (totalDone === 0) {
+            confirmBar.style.display = 'none';
+        }
+    }
+}
+
 // ==============================================================
 // BARKOD & SERİ NO ARŞİVLEME SİSTEMİ - SAĞLAM VE HIZLI JS MOTORU
 // ==============================================================
@@ -150,6 +229,7 @@ function updateOrderUIElements(filename, count) {
     const activeFileNameText = document.getElementById('activeFileNameText');
     if (activeFileNameText) {
         activeFileNameText.textContent = count > 0 ? `${filename} (${count} Paket)` : 'Henüz Excel Yüklenmedi';
+    updateScanCounters();
     }
 }
 
@@ -622,6 +702,7 @@ async function processProductSerialScan(barcode) {
             renderActiveOrderItems();
             updateOrderProgress();
             renderOrderCards();
+            updateScanCounters(barcode, pendingItem.urun_adi);
             updateHeaderStats(res.stats);
 
             const allDone = order.urunler.every(i => i.tamamlandi);
@@ -1316,6 +1397,7 @@ async function onCameraBarcodeDecoded(decodedText) {
                 renderActiveOrderItems();
                 updateOrderProgress();
                 renderOrderCards();
+                updateScanCounters(cleanCode, pendingItem.urun_adi);
                 updateHeaderStats(res.stats);
 
                 const allDone = order.urunler.every(i => i.tamamlandi);

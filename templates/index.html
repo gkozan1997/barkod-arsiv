@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.2">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.3">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -128,6 +128,10 @@
                                 <p class="active-order-customer" id="activeCustomerName">Kolideki kargo etiketini okutun veya yukarıdaki 'Paketler' sekmesinden bir paket seçin.</p>
                             </div>
                             <div style="display: flex; align-items: center; gap: 14px;">
+                                <div class="header-stat-box" id="headerStatBox" title="Toplam Okutulan Ürün / Toplam Sipariş">
+                                    <div class="stat-box-val" id="headerUnitsCount">0</div>
+                                    <div class="stat-box-lbl">Okutulan Adet</div>
+                                </div>
                                 <button class="btn-secondary btn-sm btn-nav-to-pkgs" type="button" onclick="switchTab('tab-paketler')" style="padding: 8px 14px; font-weight: 600; border-color: rgba(59, 130, 246, 0.4); color: #93C5FD;">
                                     📋 Paket Listesi (<span id="headerPkgCount">0</span>) ➔
                                 </button>
@@ -164,9 +168,33 @@
                             </label>
                             <div class="input-with-actions">
                                 <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="1. ADIM: Koli Kargo Barkodunu Okutun..." autocomplete="off">
+                                
+                                <!-- CANLI OKUTMA SAYACI ROZETİ (GİRİŞ KUTUSUNUN TAM YANINDA) -->
+                                <div class="scan-counter-badge" id="scanCounterBadge" title="Şu ana kadar okutulan toplam ürün adedi">
+                                    <div class="badge-icon">🎯</div>
+                                    <div class="badge-body">
+                                        <span class="badge-lbl">OKUTULAN</span>
+                                        <span class="badge-val"><span id="scanCounterVal">0</span> <small>Adet</small></span>
+                                    </div>
+                                </div>
+
                                 <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
                                 <button class="btn-secondary btn-sm" id="btnResetToStep1" title="Kargo Barkodu okuma adımına dön">Başa Dön ↺</button>
                             </div>
+
+                            <!-- CANLI SON OKUTULAN TEYİT ŞERİDİ -->
+                            <div class="scan-confirmation-bar" id="scanConfirmationBar" style="display: none;">
+                                <div class="confirm-left">
+                                    <span class="confirm-check">✅</span>
+                                    <span class="confirm-label">Son Teyit:</span>
+                                    <strong class="confirm-code" id="confirmBarcodeCode">-</strong>
+                                    <span class="confirm-name" id="confirmProductName">-</span>
+                                </div>
+                                <div class="confirm-right">
+                                    <span class="confirm-count-tag" id="confirmCountTag">🎯 Okutulan: 0 Adet</span>
+                                </div>
+                            </div>
+
                             <div class="scan-feedback-alert" id="orderScanAlert" style="display: none;"></div>
                         </div>
 
@@ -453,7 +481,10 @@
                         <span class="cam-banner-cust" id="camBannerCustomer">👤 Müşteri: -</span>
                         <span class="cam-banner-kargo" id="camBannerKargo">🏷️ Kargo: -</span>
                     </div>
-                    <div class="cam-banner-item" id="camBannerProduct">📦 Beklenen Ürün: -</div>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div class="cam-banner-item" id="camBannerProduct">📦 Beklenen Ürün: -</div>
+                        <span class="cam-counter-pill" id="camScanCounterPill">🎯 Okutulan: <strong id="camCounterVal">0</strong> Adet</span>
+                    </div>
                 </div>
 
                 <!-- KAMERA VİDEO ÇERÇEVESİ -->
@@ -528,6 +559,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.2"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.3"></script>
 </body>
 </html>

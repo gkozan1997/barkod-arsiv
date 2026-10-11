@@ -1487,3 +1487,151 @@ body {
     color: #34D399;
     border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
+
+/* ==============================================================
+   CANLI OKUTMA SAYACI & TEYİT ŞERİDİ STİLLERİ
+   ============================================================== */
+
+.scan-counter-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.14), rgba(5, 150, 105, 0.22));
+    border: 1.5px solid rgba(16, 185, 129, 0.4);
+    padding: 6px 14px;
+    border-radius: 8px;
+    white-space: nowrap;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.12);
+    transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    height: 52px;
+}
+
+.scan-counter-badge .badge-icon {
+    font-size: 20px;
+}
+
+.scan-counter-badge .badge-body {
+    display: flex;
+    flex-direction: column;
+    line-height: 1.1;
+    text-align: left;
+}
+
+.scan-counter-badge .badge-lbl {
+    font-size: 9.5px;
+    font-weight: 700;
+    color: #A7F3D0;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+}
+
+.scan-counter-badge .badge-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 19px;
+    font-weight: 800;
+    color: #34D399;
+    display: flex;
+    align-items: baseline;
+    gap: 3px;
+}
+
+.scan-counter-badge .badge-val small {
+    font-size: 11px;
+    font-weight: 600;
+    color: #6EE7B7;
+}
+
+.scan-counter-badge.pulse-hit {
+    transform: scale(1.08);
+    border-color: #34D399;
+    background: linear-gradient(135deg, rgba(16, 185, 129, 0.35), rgba(5, 150, 105, 0.45));
+    box-shadow: 0 0 18px rgba(16, 185, 129, 0.6);
+}
+
+.scan-confirmation-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 8px;
+    padding: 8px 14px;
+    margin-top: 10px;
+    font-size: 13px;
+    animation: fadeInConfirm 0.25s ease;
+}
+
+@keyframes fadeInConfirm {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.confirm-left {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.confirm-code {
+    font-family: 'JetBrains Mono', monospace;
+    color: #38BDF8;
+    font-size: 13.5px;
+}
+
+.confirm-name {
+    color: var(--text-muted);
+    font-size: 12px;
+}
+
+.confirm-count-tag {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34D399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-weight: 700;
+    font-size: 12px;
+    white-space: nowrap;
+}
+
+.header-stat-box {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid var(--card-border);
+    border-radius: 10px;
+    padding: 6px 14px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-width: 85px;
+}
+
+.stat-box-val {
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 17px;
+    font-weight: 800;
+    color: #34D399;
+    line-height: 1.1;
+}
+
+.stat-box-lbl {
+    font-size: 10px;
+    color: var(--text-muted);
+    font-weight: 600;
+    text-transform: uppercase;
+}
+
+.cam-counter-pill {
+    background: rgba(16, 185, 129, 0.2);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12px;
+    color: #34D399;
+    font-weight: 600;
+}
