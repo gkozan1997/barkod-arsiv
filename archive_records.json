@@ -54,5 +54,19 @@
     "okutma_yontemi": "El Terminali",
     "notlar": "",
     "durum": "Gecerli"
+  },
+  {
+    "id": 5,
+    "kargo_barkodu": "1099222",
+    "siparis_no": "1099222",
+    "musteri_adi": "Yusuf yıldız",
+    "urun_adi": "Beko BOCD K 6510 EWG Beyond Serisi Cam Tablalı Ocaklar",
+    "barkod_seri_no": "1234567",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-11 23:47:38",
+    "kayit_gunu": "2026-10-11",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
