@@ -1,1 +1,1 @@
-{"filename": "test.xlsx", "orders": [{"test": 123}]}
+{"filename": "Test_Siparis_2026.xlsx", "updated_at": "2026-10-11 07:15:00", "orders": [{"kargo_barkodu": "7330037763157327", "siparis_no": "11680652301", "musteri_adi": "Ahmet Yilmaz", "pazaryeri": "Trendyol", "urunler": [{"urun_adi": "Beko Kahve Makinesi", "adet": 1, "tamamlandi": false}], "tamamlandi": false}]}
