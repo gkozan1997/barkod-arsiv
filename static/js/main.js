@@ -192,6 +192,13 @@ function playWarningBuzzer() {
 function initApp() {
     console.log('[Barkod Arşiv] Başlatılıyor...');
     try { initTabs(); } catch (e) { console.error('Tabs error:', e); }
+    try { 
+        // KALICI SİPARİŞLERİ GERİ YÜKLE (YENİ EXCEL'E KADAR GEÇERLİ)
+        const hasLocal = restorePersistedOrders();
+        if (!hasLocal) {
+            fetchServerPersistedOrders();
+        }
+    } catch (e) { console.error('Persistence error:', e); }
     try { initExcelUpload(); } catch (e) { console.error('Excel upload error:', e); }
     try { initOrderWorkflow(); } catch (e) { console.error('Order workflow error:', e); }
     try { initFreeScan(); } catch (e) { console.error('Free scan error:', e); }
@@ -1414,6 +1421,10 @@ window.switchTab = function(targetId) {
     if (targetId === 'tab-siparis') {
         const inp = document.getElementById('activeScanInput');
         if (inp) inp.focus();
+    } else if (targetId === 'tab-paketler') {
+        const f = document.getElementById('orderFilterInput');
+        if (f) f.focus();
+        renderOrderCards(f ? f.value.trim().toLowerCase() : '');
     } else if (targetId === 'tab-serbest') {
         const inp = document.getElementById('freeScanInput');
         if (inp) inp.focus();
@@ -1438,12 +1449,13 @@ window.loadRecentExcel = async function() {
         const res = await response.json();
         if (res.status === 'success') {
             loadedOrders = res.orders || [];
-            const counter = document.getElementById('loadedOrderCount');
-            if (counter) counter.textContent = loadedOrders.length;
+            loadedFileName = res.filename || 'İndirilenler Sipariş Listesi';
+            saveOrdersToStorage(loadedFileName, loadedOrders);
+            updateOrderUIElements(loadedFileName, loadedOrders.length);
             renderOrderCards();
-            const dropText = document.querySelector('.dropzone-text strong');
-            if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Paket)`;
-            resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
+            resetToWaitingState();
+            const alertBox = document.getElementById('orderScanAlert');
+            showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi ve sabitlendi! Kolideki KARGO BARKODUNU okutun.`);
             playSuccessBeep();
         } else {
             alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
