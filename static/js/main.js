@@ -391,7 +391,7 @@ function initExcelUpload() {
             e.preventDefault();
             dropzone.style.borderColor = 'rgba(59, 130, 246, 0.35)';
             if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                handleFileUpload(e.dataTransfer.files[0]);
+                handleFileUpload(e.dataTransfer.files);
             }
         });
     }
@@ -399,7 +399,7 @@ function initExcelUpload() {
     if (fileInput) {
         fileInput.addEventListener('change', () => {
             if (fileInput.files && fileInput.files.length > 0) {
-                handleFileUpload(fileInput.files[0]);
+                handleFileUpload(fileInput.files);
             }
         });
     }
@@ -437,13 +437,34 @@ function initExcelUpload() {
     }
 }
 
-async function handleFileUpload(file) {
+async async function handleFileUpload(filesInput) {
+    if (!filesInput) return;
+
+    const files = (filesInput instanceof FileList || Array.isArray(filesInput)) 
+        ? Array.from(filesInput) 
+        : [filesInput];
+
+    const validFiles = files.filter(f => f && f.name && /\.(xlsx|xls|csv)$/i.test(f.name));
+    if (validFiles.length === 0) {
+        alert('Lütfen geçerli bir Excel (.xlsx, .xls) veya CSV dosyası seçin.');
+        return;
+    }
+
     const formData = new FormData();
-    formData.append('file', file);
+    validFiles.forEach(f => {
+        formData.append('files', f);
+        formData.append('file', f);
+    });
 
     const dropText = document.querySelector('.dropzone-text strong');
     const origText = dropText ? dropText.textContent : '';
-    if (dropText) dropText.textContent = 'Dosya yükleniyor ve siparişler okunuyor...';
+    if (dropText) {
+        if (validFiles.length === 1) {
+            dropText.textContent = `"${validFiles[0].name}" yükleniyor ve okunuyor...`;
+        } else {
+            dropText.textContent = `${validFiles.length} adet Excel dosyası yükleniyor ve birleştiriliyor...`;
+        }
+    }
 
     try {
         const response = await fetch('/api/upload-orders', {
@@ -454,16 +475,18 @@ async function handleFileUpload(file) {
 
         if (res.status === 'success') {
             loadedOrders = res.orders || [];
-            loadedFileName = file.name;
+            loadedFileName = res.filename || (validFiles.length > 1 ? `${validFiles.length} Dosya` : validFiles[0].name);
             saveOrdersToStorage(loadedFileName, loadedOrders);
             updateOrderUIElements(loadedFileName, loadedOrders.length);
             renderOrderCards();
             resetToWaitingState();
+
             const alertBox = document.getElementById('orderScanAlert');
-            showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi ve kaydedildi! Kolideki KARGO BARKODUNU okutun.`);
+            const summaryBadge = validFiles.length > 1 ? `${validFiles.length} Dosya Birleştirildi` : loadedFileName;
+            showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi (${summaryBadge})! Kolideki kargo barkodunu veya sipariş numarasını okutun.`);
             playSuccessBeep();
         } else {
-            alert('Hata: ' + (res.message || 'Dosya okunamadı'));
+            alert('Hata: ' + (res.message || 'Dosyalar okunamadı'));
             if (dropText) dropText.textContent = origText;
             playWarningBuzzer();
         }
@@ -471,6 +494,9 @@ async function handleFileUpload(file) {
         alert('Sunucu hatası: ' + err.message);
         if (dropText) dropText.textContent = origText;
         playWarningBuzzer();
+    } finally {
+        const fi = document.getElementById('excelFileInput');
+        if (fi) fi.value = '';
     }
 }
 
@@ -1547,7 +1573,7 @@ window.switchTab = function(targetId) {
 
 window.handleFileInputChange = function(files) {
     if (files && files.length > 0) {
-        handleFileUpload(files[0]);
+        handleFileUpload(files);
     }
 };
 

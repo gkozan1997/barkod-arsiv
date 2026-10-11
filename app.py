@@ -98,39 +98,77 @@ def load_recent_download():
 
 @app.route('/api/upload-orders', methods=['POST'])
 def upload_orders():
-    if 'file' not in request.files:
-        return jsonify({'status': 'error', 'message': 'Dosya seçilmedi'}), 400
+    # Coklu Excel yukleme destegi (files veya file listesi)
+    uploaded_files = request.files.getlist('files') or request.files.getlist('file')
+    valid_files = [f for f in uploaded_files if f and getattr(f, 'filename', '').strip() != '']
 
-    file = request.files['file']
-    if not file.filename:
-        return jsonify({'status': 'error', 'message': 'Dosya adı geçersiz'}), 400
+    if not valid_files:
+        return jsonify({'status': 'error', 'message': 'Hiçbir dosya seçilmedi veya geçersiz'}), 400
 
     upload_dir = get_temp_upload_dir()
-    unique_name = f"{secrets.token_hex(4)}_{file.filename}"
-    temp_path = os.path.join(upload_dir, unique_name)
-    file.save(temp_path)
+    saved_paths = []
+    file_names = []
 
     try:
-        orders = parse_order_file(temp_path)
+        all_packages_map = {}
+
+        for f in valid_files:
+            fname = f.filename
+            file_names.append(fname)
+            unique_name = f"{secrets.token_hex(4)}_{fname}"
+            temp_path = os.path.join(upload_dir, unique_name)
+            f.save(temp_path)
+            saved_paths.append(temp_path)
+
+            file_orders = parse_order_file(temp_path)
+            for pkg in file_orders:
+                key = pkg.get('kargo_barkodu') or pkg.get('siparis_no') or pkg.get('paket_no')
+                if not key:
+                    key = f"pkg_{len(all_packages_map)+1}"
+
+                if key not in all_packages_map:
+                    all_packages_map[key] = pkg
+                else:
+                    # Mükerrer/Aynı paket gelmişse ürün kalemlerini birleştir
+                    existing = all_packages_map[key]
+                    existing_items = existing.setdefault('urunler', [])
+                    for item in pkg.get('urunler', []):
+                        item_copy = dict(item)
+                        item_copy['item_id'] = f"item_{len(existing_items) + 1}"
+                        existing_items.append(item_copy)
+
+        merged_orders = list(all_packages_map.values())
+
+        if len(file_names) == 1:
+            summary_name = file_names[0]
+        else:
+            names_summary = ", ".join(file_names[:2])
+            if len(file_names) > 2:
+                names_summary += f" (+{len(file_names)-2} dosya)"
+            summary_name = f"{len(file_names)} Dosya ({names_summary})"
+
         try:
-            save_active_orders_file(file.filename, orders)
-            save_orders_to_cloud(file.filename, orders)
-        except Exception:
-            pass
+            save_active_orders_file(summary_name, merged_orders)
+            save_orders_to_cloud(summary_name, merged_orders)
+        except Exception as e:
+            print(f"[CloudSync] Hata: {e}")
+
         return jsonify({
             'status': 'success',
-            'filename': file.filename,
-            'order_count': len(orders),
-            'orders': orders
+            'filename': summary_name,
+            'file_count': len(file_names),
+            'order_count': len(merged_orders),
+            'orders': merged_orders
         })
     except Exception as e:
-        return jsonify({'status': 'error', 'message': f'Dosya işlenirken hata: {str(e)}'}), 500
+        return jsonify({'status': 'error', 'message': f'Dosyalar işlenirken hata: {str(e)}'}), 500
     finally:
-        if os.path.exists(temp_path):
-            try:
-                os.remove(temp_path)
-            except Exception:
-                pass
+        for p in saved_paths:
+            if os.path.exists(p):
+                try:
+                    os.remove(p)
+                except Exception:
+                    pass
 
 @app.route('/api/record', methods=['POST'])
 def record_barcode():
