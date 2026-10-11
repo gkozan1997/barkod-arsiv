@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.1">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.2">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -216,6 +216,7 @@
                                 <p class="packages-subtitle">Excel'den aktarılan tüm koli paketleri. Listeden herhangi bir pakete tıklayarak hemen tarama ekranına geçebilirsiniz.</p>
                             </div>
                             <div class="packages-meta-box">
+                                <button class="btn-secondary btn-sm" onclick="window.syncOrdersNow && window.syncOrdersNow()" id="btnSyncCloud" style="color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Telefon ve tüm cihazlarla bulut eşitle">🔄 Bulut Eşitle</button>
                                 <div class="active-file-pill" id="activeFileBadge">
                                     <span class="file-icon">📁</span>
                                     <span id="activeFileNameText">Henüz Excel Yüklenmedi</span>
@@ -527,6 +528,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.1"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.2"></script>
 </body>
 </html>

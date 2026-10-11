@@ -52,24 +52,45 @@ function restorePersistedOrders() {
     return false;
 }
 
-async function fetchServerPersistedOrders() {
+async function fetchServerPersistedOrders(silent = false) {
     try {
-        const res = await fetch('/api/get-current-orders');
+        const res = await fetch('/api/get-current-orders?t=' + Date.now());
         const data = await res.json();
         if (data && data.status === 'success' && Array.isArray(data.orders) && data.orders.length > 0) {
             loadedOrders = data.orders;
             loadedFileName = data.filename || 'Aktif Siparişler';
             saveOrdersToStorage(loadedFileName, loadedOrders);
             updateOrderUIElements(loadedFileName, loadedOrders.length);
-            renderOrderCards();
-            console.log(`[Barkod Arşiv] Sunucudan ${loadedOrders.length} paket geri yüklendi.`);
+            renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+            console.log(`[Barkod Arşiv] Buluttan ${loadedOrders.length} paket tüm cihazlarla senkronize edildi.`);
+            if (!silent) {
+                const badge = document.getElementById('cloudSyncStatusText');
+                if (badge) badge.textContent = '☁️ Bulutla Senkronize';
+            }
             return true;
+        } else if (data && data.status === 'empty') {
+            loadedOrders = [];
+            loadedFileName = '';
+            localStorage.removeItem(ORDERS_STORAGE_KEY);
+            localStorage.removeItem(ORDERS_META_KEY);
+            updateOrderUIElements('', 0);
+            renderOrderCards();
         }
     } catch (e) {
         console.warn('Sunucudan sipariş çekme hatası:', e);
     }
     return false;
 }
+
+window.syncOrdersNow = async function() {
+    const btn = document.getElementById('btnSyncCloud');
+    if (btn) btn.textContent = 'Eşitleniyor...';
+    await fetchServerPersistedOrders();
+    if (btn) btn.textContent = '🔄 Bulut Eşitle';
+    const alertBox = document.getElementById('orderScanAlert');
+    showAlert(alertBox, 'success', `☁️ Bulut senkronizasyonu tamamlandı: ${loadedOrders.length} paket aktif.`);
+    playSuccessBeep();
+};
 
 window.clearLoadedOrders = async function() {
     if (!confirm('Yüklü sipariş listesini tamamen temizlemek istediğinize emin misiniz?')) return;
@@ -192,12 +213,13 @@ function playWarningBuzzer() {
 function initApp() {
     console.log('[Barkod Arşiv] Başlatılıyor...');
     try { initTabs(); } catch (e) { console.error('Tabs error:', e); }
-    try { 
-        // KALICI SİPARİŞLERİ GERİ YÜKLE (YENİ EXCEL'E KADAR GEÇERLİ)
-        const hasLocal = restorePersistedOrders();
-        if (!hasLocal) {
-            fetchServerPersistedOrders();
-        }
+        try { 
+        // 1. Cihazdaki yerel depolamayı hemen göster (0ms beklemesiz açılış)
+        restorePersistedOrders();
+        // 2. Ardından tüm cihazlar (telefon, tablet, başka PC) ile tam eşitlenmek için buluttan çek
+        fetchServerPersistedOrders(true);
+        // Sayfa tekrar öne geldiğinde (focus) otomatik bulut kontrolü yap
+        window.addEventListener('focus', () => { fetchServerPersistedOrders(true); });
     } catch (e) { console.error('Persistence error:', e); }
     try { initExcelUpload(); } catch (e) { console.error('Excel upload error:', e); }
     try { initOrderWorkflow(); } catch (e) { console.error('Order workflow error:', e); }

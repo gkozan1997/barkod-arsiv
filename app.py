@@ -1,3 +1,4 @@
+from core_cloud_sync import save_orders_to_cloud, get_orders_from_cloud, clear_orders_from_cloud, update_order_progress_cloud
 import os
 import io
 import webbrowser
@@ -61,6 +62,7 @@ def load_recent_download():
         orders = parse_order_file(latest_fp)
         try:
             save_active_orders_file(latest_name, orders)
+            save_orders_to_cloud(latest_name, orders)
         except Exception:
             pass
         return jsonify({
@@ -90,6 +92,7 @@ def upload_orders():
         orders = parse_order_file(temp_path)
         try:
             save_active_orders_file(file.filename, orders)
+            save_orders_to_cloud(file.filename, orders)
         except Exception:
             pass
         return jsonify({
@@ -122,6 +125,11 @@ def record_barcode():
     pazaryeri = data.get('pazaryeri', 'Bilinmiyor').strip()
     okutma_yontemi = data.get('okutma_yontemi', 'El Terminali')
     notlar = data.get('notlar', '').strip()
+
+    try:
+        update_order_progress_cloud(kargo_barkodu, barkod_seri_no)
+    except Exception:
+        pass
 
     record_data, is_dup, dup_info = add_barcode_record(
         kargo_barkodu=kargo_barkodu,
@@ -204,7 +212,7 @@ def get_proof(record_id):
 
 @app.route('/api/get-current-orders', methods=['GET'])
 def get_current_orders():
-    data = get_active_orders_file()
+    data = get_orders_from_cloud() or get_active_orders_file()
     if data and data.get('orders'):
         return jsonify({
             'status': 'success',
@@ -218,6 +226,10 @@ def get_current_orders():
 @app.route('/api/clear-current-orders', methods=['POST'])
 def clear_current_orders():
     clear_active_orders_file()
+    try:
+        clear_orders_from_cloud()
+    except Exception:
+        pass
     return jsonify({'status': 'success', 'message': 'Aktif siparis listesi temizlendi'})
 
 def open_browser():
