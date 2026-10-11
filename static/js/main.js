@@ -1,3 +1,5 @@
+let isUploadingExcel = false;
+let lastUploadTimestamp = 0;
 
 // --------------------------------------------------------------
 // CANLI OKUTMA SAYACI & TEYİT MOTORU
@@ -132,6 +134,10 @@ function restorePersistedOrders() {
 }
 
 async function fetchServerPersistedOrders(silent = false) {
+    // Eğer şu an bir yükleme yapılıyorsa veya son 15 saniyede yükleme yapıldıysa buluttan çekip ezme!
+    if (isUploadingExcel || (Date.now() - lastUploadTimestamp < 15000)) {
+        return false;
+    }
     try {
         const res = await fetch('/api/get-current-orders?t=' + Date.now());
         const data = await res.json();
@@ -148,12 +154,13 @@ async function fetchServerPersistedOrders(silent = false) {
             }
             return true;
         } else if (data && data.status === 'empty') {
-            loadedOrders = [];
-            loadedFileName = '';
-            localStorage.removeItem(ORDERS_STORAGE_KEY);
-            localStorage.removeItem(ORDERS_META_KEY);
-            updateOrderUIElements('', 0);
-            renderOrderCards();
+            // SADECE yerelde de hiçbir sipariş yoksa boş bırak; kullanıcının mevcut siparişlerini ASLA ezme!
+            if (loadedOrders.length === 0) {
+                loadedOrders = [];
+                loadedFileName = '';
+                updateOrderUIElements('', 0);
+                renderOrderCards();
+            }
         }
     } catch (e) {
         console.warn('Sunucudan sipariş çekme hatası:', e);
@@ -374,7 +381,7 @@ function initExcelUpload() {
 
     if (dropzone && fileInput) {
         dropzone.addEventListener('click', (e) => {
-            if (e.target.closest('button')) return;
+            if (e.target.closest('button') || e.target.closest('input')) return;
             fileInput.click();
         });
 
@@ -438,6 +445,10 @@ function initExcelUpload() {
 }
 
 async async function handleFileUpload(filesInput) {
+    if (isUploadingExcel) {
+        console.warn('Yükleme zaten devam ediyor.');
+        return;
+    }
     if (!filesInput) return;
 
     const files = (filesInput instanceof FileList || Array.isArray(filesInput)) 
@@ -450,10 +461,12 @@ async async function handleFileUpload(filesInput) {
         return;
     }
 
+    isUploadingExcel = true;
+    lastUploadTimestamp = Date.now();
+
     const formData = new FormData();
     validFiles.forEach(f => {
         formData.append('files', f);
-        formData.append('file', f);
     });
 
     const dropText = document.querySelector('.dropzone-text strong');
@@ -473,12 +486,22 @@ async async function handleFileUpload(filesInput) {
         });
         const res = await response.json();
 
-        if (res.status === 'success') {
-            loadedOrders = res.orders || [];
+        if (res.status === 'success' && Array.isArray(res.orders) && res.orders.length > 0) {
+            loadedOrders = res.orders;
             loadedFileName = res.filename || (validFiles.length > 1 ? `${validFiles.length} Dosya` : validFiles[0].name);
+            lastUploadTimestamp = Date.now();
             saveOrdersToStorage(loadedFileName, loadedOrders);
             updateOrderUIElements(loadedFileName, loadedOrders.length);
-            renderOrderCards();
+
+            // Filtreleri sıfırla ki yeni yüklenen tüm paketler anında görünsün
+            packageStatusFilter = 'all';
+            document.querySelectorAll('.filter-pill').forEach(b => b.classList.remove('active'));
+            document.getElementById('btnFilterAll')?.classList.add('active');
+
+            const fInp = document.getElementById('orderFilterInput');
+            if (fInp) fInp.value = '';
+
+            renderOrderCards('');
             resetToWaitingState();
 
             const alertBox = document.getElementById('orderScanAlert');
@@ -486,7 +509,7 @@ async async function handleFileUpload(filesInput) {
             showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi (${summaryBadge})! Kolideki kargo barkodunu veya sipariş numarasını okutun.`);
             playSuccessBeep();
         } else {
-            alert('Hata: ' + (res.message || 'Dosyalar okunamadı'));
+            alert('Hata: ' + (res.message || 'Dosyalar okunamadı veya sipariş bulunamadı'));
             if (dropText) dropText.textContent = origText;
             playWarningBuzzer();
         }
@@ -495,6 +518,7 @@ async async function handleFileUpload(filesInput) {
         if (dropText) dropText.textContent = origText;
         playWarningBuzzer();
     } finally {
+        isUploadingExcel = false;
         const fi = document.getElementById('excelFileInput');
         if (fi) fi.value = '';
     }

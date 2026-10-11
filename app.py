@@ -99,11 +99,13 @@ def load_recent_download():
 @app.route('/api/upload-orders', methods=['POST'])
 def upload_orders():
     # Coklu Excel yukleme destegi (files veya file listesi)
-    uploaded_files = request.files.getlist('files') or request.files.getlist('file')
-    valid_files = [f for f in uploaded_files if f and getattr(f, 'filename', '').strip() != '']
+    raw_files = request.files.getlist('files')
+    if not raw_files:
+        raw_files = request.files.getlist('file')
+    valid_files = [f for f in raw_files if f and getattr(f, 'filename', '').strip() != '']
 
     if not valid_files:
-        return jsonify({'status': 'error', 'message': 'Hiçbir dosya seçilmedi veya geçersiz'}), 400
+        return jsonify({'status': 'error', 'message': 'Hiçbir dosya seçilmedi veya dosya adı geçersiz'}), 400
 
     upload_dir = get_temp_upload_dir()
     saved_paths = []
@@ -138,6 +140,9 @@ def upload_orders():
                         existing_items.append(item_copy)
 
         merged_orders = list(all_packages_map.values())
+
+        if not merged_orders:
+            return jsonify({'status': 'error', 'message': 'Seçilen dosyalarda uygun sipariş satırı tespit edilemedi'}), 400
 
         if len(file_names) == 1:
             summary_name = file_names[0]
