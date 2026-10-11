@@ -1,3 +1,8 @@
+window.handleFileInputChange = function(files) {
+    if (files && files.length > 0) {
+        handleFileUpload(files);
+    }
+};
 let isUploadingExcel = false;
 let lastUploadTimestamp = 0;
 
@@ -444,7 +449,7 @@ function initExcelUpload() {
     }
 }
 
-async async function handleFileUpload(filesInput) {
+async function handleFileUpload(filesInput) {
     if (isUploadingExcel) {
         console.warn('Yükleme zaten devam ediyor.');
         return;

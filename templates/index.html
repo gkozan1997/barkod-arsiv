@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.7">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.8">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -228,10 +228,10 @@
                                 <strong id="dropzoneMainTitle">Çoklu Excel Sipariş Dosyalarını Sürükleyin veya Çoklu Seçin</strong>
                                 <span id="dropzoneSubtitle">(Trendyol, Hepsiburada, Web Sitesi vb. • Tek seferde birden fazla Excel seçip birleştirebilirsiniz)</span>
                             </div>
-                            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple style="display: none;">
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" multiple onchange="window.handleFileInputChange && window.handleFileInputChange(this.files)" style="position: absolute; opacity: 0; width: 1px; height: 1px; pointer-events: none;">
                             <div class="dropzone-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                                 <button class="btn-primary" type="button" id="btnLoadRecentExcel" onclick="window.loadRecentExcel && window.loadRecentExcel()">⚡ İndirilenler'den Getir</button>
-                                <button type="button" class="btn-secondary" id="browseExcelBtn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Çoklu Excel Seç</button>
+                                <button type="button" class="btn-secondary" id="browseExcelBtn" onclick="document.getElementById('excelFileInput').click()" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Çoklu Excel Seç</button>
                                 <button class="btn-secondary btn-sm" type="button" onclick="window.syncOrdersNow && window.syncOrdersNow()" id="btnSyncCloud" style="color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Telefon ve tüm cihazlarla bulut eşitle">🔄 Bulut Eşitle</button>
                                 <button class="btn-primary btn-packages-quick" type="button" id="btnGoToScan" onclick="switchTab('tab-siparis')" style="background: linear-gradient(135deg, #10B981, #059669); border: none;">🎯 Taramaya Başla ➔</button>
                                 <button class="btn-secondary btn-clear-quick" type="button" id="btnClearOrders" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" style="display: none; color: #F87171; border-color: rgba(239, 68, 68, 0.35);" title="Yüklü Excel listesini temizle">🗑️ Temizle</button>
@@ -560,6 +560,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.7"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.8"></script>
 </body>
 </html>
