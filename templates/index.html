@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=3.3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.0">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -27,6 +27,9 @@
         if (targetId === 'tab-siparis') {
             const inp = document.getElementById('activeScanInput');
             if (inp) inp.focus();
+        } else if (targetId === 'tab-paketler') {
+            const f = document.getElementById('orderFilterInput');
+            if (f) f.focus();
         } else if (targetId === 'tab-serbest') {
             const inp = document.getElementById('freeScanInput');
             if (inp) inp.focus();
@@ -68,11 +71,16 @@
             </div>
         </header>
 
-        <!-- TOP NAVIGATION TABS -->
+                <!-- TOP NAVIGATION TABS -->
         <nav class="main-tabs-nav">
             <button class="nav-tab active" data-tab="tab-siparis" onclick="switchTab('tab-siparis')">
-                <span class="tab-icon">📦</span>
-                <span class="tab-text">Sipariş Listesiyle Eşleme</span>
+                <span class="tab-icon">🎯</span>
+                <span class="tab-text">Sipariş & Barkod Okutma</span>
+            </button>
+            <button class="nav-tab" data-tab="tab-paketler" id="navTabPaketler" onclick="switchTab('tab-paketler')">
+                <span class="tab-icon">📋</span>
+                <span class="tab-text">Paketler / Kargo Barkodları</span>
+                <span class="nav-counter-pill" id="navOrderCount">0</span>
             </button>
             <button class="nav-tab" data-tab="tab-serbest" onclick="switchTab('tab-serbest')">
                 <span class="tab-icon">⚡</span>
@@ -91,117 +99,147 @@
         <!-- MAIN CONTENT AREA -->
         <main class="main-content">
             
-            <!-- TAB 1: SİPARİŞ LİSTESİYLE EŞLEME -->
+            <!-- TAB 1: SİPARİŞ & BARKOD OKUTMA (ANA EKRAN - ODAKLI VE FERAH) -->
             <section id="tab-siparis" class="tab-pane active">
                 <div class="excel-upload-bar">
                     <div class="upload-dropzone" id="excelDropzone">
                         <div class="dropzone-icon">📥</div>
-                        <div class="dropzone-text">
-                            <strong>Pazaryeri Excel Sipariş Listesini Sürükleyin</strong> veya tıklayarak seçin
-                            <span>(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb.)</span>
+                        <div class="dropzone-text" id="dropzoneText">
+                            <strong id="dropzoneMainTitle">Pazaryeri Excel Sipariş Listesini Sürükleyin veya Seçin</strong>
+                            <span id="dropzoneSubtitle">(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb. • Yeni Excel yüklenene kadar geçerli kalır)</span>
                         </div>
                         <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" onchange="handleFileInputChange(this.files)" style="display: none;">
-                        <div style="display: flex; gap: 8px; align-items: center;">
+                        <div class="dropzone-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
                             <button class="btn-primary" type="button" id="btnLoadRecentExcel" onclick="window.loadRecentExcel && window.loadRecentExcel()">⚡ İndirilenler'den Getir</button>
-                            <label for="excelFileInput" class="btn-secondary" id="browseExcelBtn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Dosya Seç</label>
+                            <label for="excelFileInput" class="btn-secondary" id="browseExcelBtn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Excel Seç</label>
+                            <button class="btn-primary btn-packages-quick" type="button" id="btnGoToPackages" onclick="switchTab('tab-paketler')" style="display: none; background: linear-gradient(135deg, #0EA5E9, #2563EB);">📋 Paketleri Gör (<span id="btnPkgCount">0</span>)</button>
+                            <button class="btn-secondary btn-clear-quick" type="button" id="btnClearOrders" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" style="display: none; color: #F87171; border-color: rgba(239, 68, 68, 0.35);" title="Yüklü Excel listesini temizle">🗑️ Temizle</button>
                         </div>
                     </div>
                 </div>
 
-                <div class="order-workflow-grid">
-                    <!-- SOL: SİPARİŞ LİSTESİ -->
-                    <div class="order-list-col">
-                        <div class="col-card">
-                            <div class="col-card-header">
-                                <h3>Paketler / Kargo Barkodları (<span id="loadedOrderCount">0</span>)</h3>
-                                <input type="text" id="orderFilterInput" class="filter-input" placeholder="Kargo Barkodu / Alıcı Ara...">
+                <!-- ANA EKRANDA DOĞRUDAN TAM GENİŞLİKTE AKTİF SİPARİŞ VE SERİ NO OKUTMA KONSOLU -->
+                <div class="scan-single-console">
+                    <div class="col-card active-order-card">
+                        <div class="active-order-header">
+                            <div>
+                                <span class="order-marketplace-badge" id="activeMarketplace">Paket Bekleniyor</span>
+                                <h2 class="active-order-title" id="activeOrderTitle">📦 Kargo Barkodunu Okutun</h2>
+                                <p class="active-order-customer" id="activeCustomerName">Kolideki kargo etiketini okutun veya yukarıdaki 'Paketler' sekmesinden bir paket seçin.</p>
                             </div>
-                            <div class="order-cards-scroll" id="orderCardsContainer">
-                                <div class="empty-state">
-                                    Henüz sipariş yüklenmedi.<br>Yukarıdaki alandan Excel dosyanızı seçin.
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- SAĞ: AKTİF SİPARİŞ VE SERİ NO OKUTMA ALANI -->
-                    <div class="order-action-col">
-                        <div class="col-card active-order-card">
-                            <div class="active-order-header">
-                                <div>
-                                    <span class="order-marketplace-badge" id="activeMarketplace">Pazaryeri</span>
-                                    <h2 class="active-order-title" id="activeOrderTitle">Paket Seçilmedi</h2>
-                                    <p class="active-order-customer" id="activeCustomerName">Lütfen soldaki listeden veya kargo barkodunu okutarak bir paket seçin</p>
-                                </div>
+                            <div style="display: flex; align-items: center; gap: 14px;">
+                                <button class="btn-secondary btn-sm btn-nav-to-pkgs" type="button" onclick="switchTab('tab-paketler')" style="padding: 8px 14px; font-weight: 600; border-color: rgba(59, 130, 246, 0.4); color: #93C5FD;">
+                                    📋 Paket Listesi (<span id="headerPkgCount">0</span>) ➔
+                                </button>
                                 <div class="order-progress-box">
                                     <div class="progress-percent" id="orderProgressPercent">%0</div>
                                     <div class="progress-label">Tamamlandı</div>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- 2 ADIMLI AKILLI DEPO TARAMA AKIŞI -->
-                            <div class="workflow-stepper">
-                                <div class="step-chip active" id="stepChip1">
-                                    <span class="step-badge">1</span>
-                                    <div class="step-info">
-                                        <strong>1. ADIM: Kargo Barkodu</strong>
-                                        <small>Müşteri & Koliyi Aç</small>
-                                    </div>
-                                </div>
-                                <div class="step-divider">➔</div>
-                                <div class="step-chip" id="stepChip2">
-                                    <span class="step-badge">2</span>
-                                    <div class="step-info">
-                                        <strong>2. ADIM: Ürün Seri No</strong>
-                                        <small>Ürünü Okut & Mühürle</small>
-                                    </div>
+                        <!-- 2 ADIMLI AKILLI DEPO TARAMA AKIŞI -->
+                        <div class="workflow-stepper">
+                            <div class="step-chip active" id="stepChip1">
+                                <span class="step-badge">1</span>
+                                <div class="step-info">
+                                    <strong>1. ADIM: Kargo Barkodu</strong>
+                                    <small>Müşteri & Koliyi Aç</small>
                                 </div>
                             </div>
-
-                            <div class="scanner-input-box" id="scannerContainerBox">
-                                <label for="activeScanInput">
-                                    <span class="scan-label-title" id="scanLabelTitle">📦 1. Adım: Kargo Barkodunu Okutun</span>
-                                    <span class="scan-label-hint" id="scanLabelHint">Kolideki kargo etiketini okutun, müşteri otomatik açılsın</span>
-                                </label>
-                                <div class="input-with-actions">
-                                    <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="Koli Kargo Barkodunu Okutun..." autocomplete="off">
-                                    <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
-                                    <button class="btn-secondary btn-sm" id="btnResetToStep1" title="Kargo Barkodu okuma adımına dön">Başa Dön ↺</button>
-                                </div>
-                                <div class="scan-feedback-alert" id="orderScanAlert" style="display: none;"></div>
-                            </div>
-
-                            <!-- SİPARİŞ KALEMLERİ LİSTESİ -->
-                            <div class="order-items-section">
-                                <h4>Pakete Girecek Ürünler</h4>
-                                <div class="items-table-wrap">
-                                    <table class="items-table">
-                                        <thead>
-                                            <tr>
-                                                <th style="width: 50px;">Durum</th>
-                                                <th>Ürün Adı</th>
-                                                <th style="width: 80px; text-align: center;">Adet</th>
-                                                <th>Kaydedilen Seri No</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody id="activeOrderItemsBody">
-                                            <tr>
-                                                <td colspan="4" class="text-center text-muted">Sipariş seçildiğinde ürünler burada listelenecektir.</td>
-                                            </tr>
-                                        </tbody>
-                                    </table>
+                            <div class="step-divider">➔</div>
+                            <div class="step-chip" id="stepChip2">
+                                <span class="step-badge">2</span>
+                                <div class="step-info">
+                                    <strong>2. ADIM: Ürün Seri No</strong>
+                                    <small>Ürünü Okut & Mühürle</small>
                                 </div>
                             </div>
+                        </div>
 
-                            <!-- TAMAMLANMA BİLDİRİMİ -->
-                            <div class="order-completion-banner" id="orderCompleteBanner" style="display: none;">
-                                <div class="completion-icon">✅</div>
-                                <div>
-                                    <h4>Tüm Ürünlerin Barkod / Seri Numaraları Kaydedildi!</h4>
-                                    <p>Bu siparişin tüm çıkış bilgileri veritabanına ve günlük arşive mühürlendi.</p>
-                                </div>
-                                <button class="btn-primary" id="btnNextOrder">Sıradaki Siparişe Geç ➡️</button>
+                        <div class="scanner-input-box" id="scannerContainerBox">
+                            <label for="activeScanInput">
+                                <span class="scan-label-title" id="scanLabelTitle">📦 1. Adım: Kargo Barkodunu Okutun</span>
+                                <span class="scan-label-hint" id="scanLabelHint">Kolideki kargo etiketini okutun, müşteri ve ürünler otomatik açılsın</span>
+                            </label>
+                            <div class="input-with-actions">
+                                <input type="text" id="activeScanInput" class="scan-large-input step1-mode" placeholder="1. ADIM: Koli Kargo Barkodunu Okutun..." autocomplete="off">
+                                <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
+                                <button class="btn-secondary btn-sm" id="btnResetToStep1" title="Kargo Barkodu okuma adımına dön">Başa Dön ↺</button>
                             </div>
+                            <div class="scan-feedback-alert" id="orderScanAlert" style="display: none;"></div>
+                        </div>
+
+                        <!-- SİPARİŞ KALEMLERİ LİSTESİ -->
+                        <div class="order-items-section">
+                            <h4>Pakete Girecek Ürünler</h4>
+                            <div class="items-table-wrap">
+                                <table class="items-table">
+                                    <thead>
+                                        <tr>
+                                            <th style="width: 50px;">Durum</th>
+                                            <th>Ürün Adı</th>
+                                            <th style="width: 80px; text-align: center;">Adet</th>
+                                            <th>Kaydedilen Seri No</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="activeOrderItemsBody">
+                                        <tr>
+                                            <td colspan="4" class="text-center text-muted" style="padding: 30px;">📦 Kolideki kargo barkodunu okuttuğunuzda müşteri ve ürünler buraya gelecektir.</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+
+                        <!-- TAMAMLANMA BİLDİRİMİ -->
+                        <div class="order-completion-banner" id="orderCompleteBanner" style="display: none;">
+                            <div class="completion-icon">✅</div>
+                            <div>
+                                <h4>Tüm Ürünlerin Barkod / Seri Numaraları Kaydedildi!</h4>
+                                <p>Bu siparişin tüm çıkış bilgileri veritabanına ve günlük arşive mühürlendi.</p>
+                            </div>
+                            <button class="btn-primary" id="btnNextOrder">Sıradaki Siparişe Geç ➡️</button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- TAB: PAKETLER & KARGO BARKODLARI (YUKARIDAKİ ÖZEL SEKME) -->
+            <section id="tab-paketler" class="tab-pane">
+                <div class="packages-tab-container">
+                    <!-- ÜST BİLGİ & ARAÇ ÇUBUĞU -->
+                    <div class="packages-header-card">
+                        <div class="packages-header-top">
+                            <div>
+                                <h2 class="packages-title">📋 Yüklü Paketler & Kargo Barkodları (<span id="loadedOrderCount">0</span>)</h2>
+                                <p class="packages-subtitle">Excel'den aktarılan tüm koli paketleri. Listeden herhangi bir pakete tıklayarak hemen tarama ekranına geçebilirsiniz.</p>
+                            </div>
+                            <div class="packages-meta-box">
+                                <div class="active-file-pill" id="activeFileBadge">
+                                    <span class="file-icon">📁</span>
+                                    <span id="activeFileNameText">Henüz Excel Yüklenmedi</span>
+                                </div>
+                                <button class="btn-secondary btn-sm" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" id="btnClearPackagesTab" title="Yüklü listeyi sıfırla" style="color: #F87171; border-color: rgba(239, 68, 68, 0.35);">🗑️ Listeyi Sıfırla</button>
+                            </div>
+                        </div>
+
+                        <div class="packages-toolbar-grid">
+                            <div class="search-wrap">
+                                <input type="text" id="orderFilterInput" class="filter-input-large" placeholder="🔍 Kargo Barkodu, Sipariş No veya Alıcı Ara...">
+                            </div>
+                            <div class="status-filters-pills">
+                                <button class="filter-pill active" id="btnFilterAll" onclick="window.setPackageStatusFilter && window.setPackageStatusFilter('all')">Tümü (<span id="countFilterAll">0</span>)</button>
+                                <button class="filter-pill" id="btnFilterPending" onclick="window.setPackageStatusFilter && window.setPackageStatusFilter('pending')">Bekleyenler (<span id="countFilterPending">0</span>)</button>
+                                <button class="filter-pill" id="btnFilterCompleted" onclick="window.setPackageStatusFilter && window.setPackageStatusFilter('completed')">Tamamlananlar (<span id="countFilterCompleted">0</span>)</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PAKET KARTLARI GRİD LİSTESİ -->
+                    <div class="order-cards-grid" id="orderCardsContainer">
+                        <div class="empty-state">
+                            Henüz sipariş yüklenmedi.<br>Yukarıdaki 'Sipariş & Barkod Okutma' sekmesinden Excel dosyanızı seçin.
                         </div>
                     </div>
                 </div>
@@ -489,6 +527,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=3.3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.0"></script>
 </body>
 </html>

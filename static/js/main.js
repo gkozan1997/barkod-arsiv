@@ -5,8 +5,132 @@
 let html5QrCode = null;
 let activeCamTarget = null;
 let loadedOrders = [];
+let loadedFileName = '';
 let activeOrderIndex = -1;
 let scanStep = 1; // 1: Kargo Barkodu, 2: Ürün Seri No
+let packageStatusFilter = 'all'; // 'all', 'pending', 'completed'
+
+const ORDERS_STORAGE_KEY = 'barkod_arsiv_persisted_orders_v1';
+const ORDERS_META_KEY = 'barkod_arsiv_persisted_meta_v1';
+
+// --------------------------------------------------------------
+// PERSISTENCE & KALICI SİPARİŞ DEPOLAMA (YENİ EXCEL'E KADAR GEÇERLİ)
+// --------------------------------------------------------------
+function saveOrdersToStorage(filename, orders) {
+    try {
+        if (!orders || orders.length === 0) return;
+        localStorage.setItem(ORDERS_STORAGE_KEY, JSON.stringify(orders));
+        localStorage.setItem(ORDERS_META_KEY, JSON.stringify({
+            filename: filename || loadedFileName || 'Yüklü Sipariş Listesi',
+            count: orders.length,
+            savedAt: new Date().toISOString()
+        }));
+    } catch (e) {
+        console.warn('localStorage kaydetme hatası:', e);
+    }
+}
+
+function restorePersistedOrders() {
+    try {
+        const savedMeta = localStorage.getItem(ORDERS_META_KEY);
+        const savedOrders = localStorage.getItem(ORDERS_STORAGE_KEY);
+        if (savedMeta && savedOrders) {
+            const meta = JSON.parse(savedMeta);
+            const orders = JSON.parse(savedOrders);
+            if (Array.isArray(orders) && orders.length > 0) {
+                loadedOrders = orders;
+                loadedFileName = meta.filename || 'Yüklü Sipariş Listesi';
+                updateOrderUIElements(loadedFileName, loadedOrders.length);
+                renderOrderCards();
+                console.log(`[Barkod Arşiv] ${loadedOrders.length} paket yerel depolamadan başarıyla geri yüklendi.`);
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn('restorePersistedOrders hatası:', e);
+    }
+    return false;
+}
+
+async function fetchServerPersistedOrders() {
+    try {
+        const res = await fetch('/api/get-current-orders');
+        const data = await res.json();
+        if (data && data.status === 'success' && Array.isArray(data.orders) && data.orders.length > 0) {
+            loadedOrders = data.orders;
+            loadedFileName = data.filename || 'Aktif Siparişler';
+            saveOrdersToStorage(loadedFileName, loadedOrders);
+            updateOrderUIElements(loadedFileName, loadedOrders.length);
+            renderOrderCards();
+            console.log(`[Barkod Arşiv] Sunucudan ${loadedOrders.length} paket geri yüklendi.`);
+            return true;
+        }
+    } catch (e) {
+        console.warn('Sunucudan sipariş çekme hatası:', e);
+    }
+    return false;
+}
+
+window.clearLoadedOrders = async function() {
+    if (!confirm('Yüklü sipariş listesini tamamen temizlemek istediğinize emin misiniz?')) return;
+    loadedOrders = [];
+    loadedFileName = '';
+    activeOrderIndex = -1;
+    localStorage.removeItem(ORDERS_STORAGE_KEY);
+    localStorage.removeItem(ORDERS_META_KEY);
+    try {
+        await fetch('/api/clear-current-orders', { method: 'POST' });
+    } catch (e) {}
+    updateOrderUIElements('', 0);
+    renderOrderCards();
+    resetToWaitingState();
+    const alertBox = document.getElementById('orderScanAlert');
+    showAlert(alertBox, 'info', 'Sipariş listesi temizlendi. Yeni bir Excel yükleyebilirsiniz.');
+};
+
+window.setPackageStatusFilter = function(filter) {
+    packageStatusFilter = filter;
+    document.querySelectorAll('.filter-pill').forEach(btn => btn.classList.remove('active'));
+    if (filter === 'all') document.getElementById('btnFilterAll')?.classList.add('active');
+    else if (filter === 'pending') document.getElementById('btnFilterPending')?.classList.add('active');
+    else if (filter === 'completed') document.getElementById('btnFilterCompleted')?.classList.add('active');
+    renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+};
+
+function updateOrderUIElements(filename, count) {
+    const navOrderCount = document.getElementById('navOrderCount');
+    if (navOrderCount) navOrderCount.textContent = count;
+
+    const loadedCount = document.getElementById('loadedOrderCount');
+    if (loadedCount) loadedCount.textContent = count;
+
+    const headerPkgCount = document.getElementById('headerPkgCount');
+    if (headerPkgCount) headerPkgCount.textContent = count;
+
+    const btnPkgCount = document.getElementById('btnPkgCount');
+    if (btnPkgCount) btnPkgCount.textContent = count;
+
+    const btnGoToPackages = document.getElementById('btnGoToPackages');
+    if (btnGoToPackages) btnGoToPackages.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    const btnClearOrders = document.getElementById('btnClearOrders');
+    if (btnClearOrders) btnClearOrders.style.display = count > 0 ? 'inline-flex' : 'none';
+
+    const dropTitle = document.getElementById('dropzoneMainTitle');
+    const dropSub = document.getElementById('dropzoneSubtitle');
+    if (count > 0 && filename) {
+        if (dropTitle) dropTitle.innerHTML = `📁 Yüklü Liste: <span style="color:#60A5FA;">${filename}</span> (${count} Paket)`;
+        if (dropSub) dropSub.textContent = 'Yeni Excel yüklenene kadar geçerli kalır • Yukarıdaki "Paketler" sekmesinden görebilirsiniz.';
+    } else {
+        if (dropTitle) dropTitle.textContent = 'Pazaryeri Excel Sipariş Listesini Sürükleyin veya Seçin';
+        if (dropSub) dropSub.textContent = '(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb. • Yeni Excel yüklenene kadar geçerli kalır)';
+    }
+
+    const activeFileNameText = document.getElementById('activeFileNameText');
+    if (activeFileNameText) {
+        activeFileNameText.textContent = count > 0 ? `${filename} (${count} Paket)` : 'Henüz Excel Yüklenmedi';
+    }
+}
 
 // Web Audio API (Lazy, güvenli başlatma)
 let audioCtx = null;
@@ -107,6 +231,10 @@ function initTabs() {
             if (targetId === 'tab-siparis') {
                 const scanInput = document.getElementById('activeScanInput');
                 if (scanInput) scanInput.focus();
+            } else if (targetId === 'tab-paketler') {
+                const f = document.getElementById('orderFilterInput');
+                if (f) f.focus();
+                renderOrderCards(f ? f.value.trim().toLowerCase() : '');
             } else if (targetId === 'tab-serbest') {
                 const freeInput = document.getElementById('freeScanInput');
                 if (freeInput) freeInput.focus();
@@ -178,12 +306,13 @@ function initExcelUpload() {
                 const res = await response.json();
                 if (res.status === 'success') {
                     loadedOrders = res.orders || [];
-                    const counter = document.getElementById('loadedOrderCount');
-                    if (counter) counter.textContent = loadedOrders.length;
+                    loadedFileName = res.filename || 'İndirilenler Sipariş Listesi';
+                    saveOrdersToStorage(loadedFileName, loadedOrders);
+                    updateOrderUIElements(loadedFileName, loadedOrders.length);
                     renderOrderCards();
-                    const dropText = document.querySelector('.dropzone-text strong');
-                    if (dropText) dropText.textContent = `Yüklendi: ${res.filename} (${loadedOrders.length} Paket)`;
-                    resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
+                    resetToWaitingState();
+                    const alertBox = document.getElementById('orderScanAlert');
+                    showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi ve kaydedildi! Kolideki KARGO BARKODUNU okutun.`);
                     playSuccessBeep();
                 } else {
                     alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
@@ -216,11 +345,13 @@ async function handleFileUpload(file) {
 
         if (res.status === 'success') {
             loadedOrders = res.orders || [];
-            const counter = document.getElementById('loadedOrderCount');
-            if (counter) counter.textContent = loadedOrders.length;
+            loadedFileName = file.name;
+            saveOrdersToStorage(loadedFileName, loadedOrders);
+            updateOrderUIElements(loadedFileName, loadedOrders.length);
             renderOrderCards();
-            if (dropText) dropText.textContent = `Yüklendi: ${file.name} (${loadedOrders.length} Paket)`;
-            resetToWaitingState(); const alertBox = document.getElementById('orderScanAlert'); showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi! Kolideki KARGO BARKODUNU okutun.`);
+            resetToWaitingState();
+            const alertBox = document.getElementById('orderScanAlert');
+            showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi ve kaydedildi! Kolideki KARGO BARKODUNU okutun.`);
             playSuccessBeep();
         } else {
             alert('Hata: ' + (res.message || 'Dosya okunamadı'));
@@ -500,11 +631,31 @@ function renderOrderCards(filterText = '') {
 
     container.innerHTML = '';
     if (loadedOrders.length === 0) {
-        container.innerHTML = '<div class="empty-state">Henüz sipariş yüklenmedi.<br>Yukarıdaki alandan Excel dosyanızı seçin.</div>';
+        container.innerHTML = '<div class="empty-state">Henüz sipariş yüklenmedi.<br>Yukarıdaki \'Sipariş & Barkod Okutma\' sekmesinden Excel dosyanızı seçin.</div>';
         return;
     }
 
+    const countAll = loadedOrders.length;
+    const countDone = loadedOrders.filter(o => o.tamamlandi || (o.urunler && o.urunler.length > 0 && o.urunler.every(i => i.tamamlandi))).length;
+    const countPending = countAll - countDone;
+
+    const cfAll = document.getElementById('countFilterAll');
+    if (cfAll) cfAll.textContent = countAll;
+    const cfPending = document.getElementById('countFilterPending');
+    if (cfPending) cfPending.textContent = countPending;
+    const cfCompleted = document.getElementById('countFilterCompleted');
+    if (cfCompleted) cfCompleted.textContent = countDone;
+
+    let matchedCount = 0;
+
     loadedOrders.forEach((order, idx) => {
+        const isCompleted = order.tamamlandi || (order.urunler && order.urunler.length > 0 && order.urunler.every(i => i.tamamlandi));
+
+        // Durum Filtresi
+        if (packageStatusFilter === 'pending' && isCompleted) return;
+        if (packageStatusFilter === 'completed' && !isCompleted) return;
+
+        // Metin Filtresi
         if (filterText) {
             const matchKargo = (order.kargo_barkodu || '').toLowerCase().includes(filterText);
             const matchOrder = (order.siparis_no || '').toLowerCase().includes(filterText);
@@ -512,27 +663,37 @@ function renderOrderCards(filterText = '') {
             if (!matchKargo && !matchOrder && !matchCustomer) return;
         }
 
+        matchedCount++;
         const isSelected = (idx === activeOrderIndex);
         const card = document.createElement('div');
-        card.className = `order-card-item ${isSelected ? 'selected' : ''} ${order.tamamlandi ? 'completed' : ''}`;
+        card.className = `order-card-item ${isSelected ? 'selected' : ''} ${isCompleted ? 'completed' : ''}`;
         const kargoGosterim = order.kargo_barkodu || order.siparis_no || 'Barkod Yok';
         const kargoBilgi = order.kargo_firmasi ? ` • ${order.kargo_firmasi}` : '';
 
+        const statusBadge = isCompleted 
+            ? '<span class="status-badge-done">Tamamlandı ✅</span>'
+            : '<span class="status-badge-pending">Bekliyor ⏳</span>';
+
+        const itemCount = order.urunler ? order.urunler.length : 1;
+
         card.innerHTML = `
             <div class="card-item-top">
-                <span class="card-order-no" style="font-size: 14px; color: #38BDF8;">🏷️ ${kargoGosterim}</span>
+                <span class="card-order-no" style="font-size: 14.5px; color: #38BDF8;">📦 ${kargoGosterim}</span>
                 <span class="card-market-tag">${order.pazaryeri || 'Pazar'}${kargoBilgi}</span>
             </div>
-            <div class="card-customer">${order.musteri_adi || 'Müşteri'}</div>
-            <div class="card-item-summary" style="display: flex; justify-content: space-between;">
-                <span>${order.urunler.length} Kalem Ürün</span>
-                <span style="font-size: 11px; color: var(--text-muted);">Sipariş: ${order.siparis_no || '-'}</span>
-                ${order.tamamlandi ? '<span>✅</span>' : ''}
+            <div class="card-customer" style="font-size: 15px; font-weight: 700; color: #F1F5F9;">${order.musteri_adi || 'Müşteri'}</div>
+            <div class="card-item-summary" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
+                <span style="font-size: 12px; color: var(--text-muted);">${itemCount} Kalem Ürün • Sipariş: ${order.siparis_no || '-'}</span>
+                ${statusBadge}
             </div>
         `;
         card.addEventListener('click', () => selectOrder(idx));
         container.appendChild(card);
     });
+
+    if (matchedCount === 0 && loadedOrders.length > 0) {
+        container.innerHTML = '<div class="empty-state">Filtreye uygun paket bulunamadı.</div>';
+    }
 }
 
 function selectOrder(index) {
@@ -540,22 +701,19 @@ function selectOrder(index) {
     activeOrderIndex = index;
     const order = loadedOrders[index];
 
-    renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+    // Otomatik olarak Sipariş & Tarama sekmesine geç
+    if (typeof switchTab === 'function') {
+        switchTab('tab-siparis');
+    }
 
-    // Seçilen müşteri kartını sol listede görünür yap
-    setTimeout(() => {
-        const selCard = document.querySelector('.order-card-item.selected');
-        if (selCard) {
-            selCard.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-        }
-    }, 50);
+    renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
 
     const kargoBilgisi = order.kargo_firmasi ? ` (${order.kargo_firmasi})` : '';
     const mBadge = document.getElementById('activeMarketplace');
     if (mBadge) mBadge.textContent = (order.pazaryeri || 'Pazaryeri') + kargoBilgisi;
 
     const oTitle = document.getElementById('activeOrderTitle');
-    if (oTitle) oTitle.textContent = `🏷️ Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
+    if (oTitle) oTitle.textContent = `📦 Kargo Barkodu: ${order.kargo_barkodu || order.siparis_no}`;
 
     const cName = document.getElementById('activeCustomerName');
     if (cName) cName.textContent = `Alıcı: ${order.musteri_adi || 'Bilinmiyor'} • Sipariş No: ${order.siparis_no || '-'}`;
@@ -566,7 +724,7 @@ function selectOrder(index) {
     setScanStep(2);
 
     const alertBox = document.getElementById('orderScanAlert');
-    if (alertBox) alertBox.style.display = 'none';
+    showAlert(alertBox, 'info', `🎯 Seçilen Paket: ${order.musteri_adi} (Kargo: ${order.kargo_barkodu || order.siparis_no}). Lütfen ürün seri numarasını okutun.`);
 }
 
 function renderActiveOrderItems() {

@@ -5,7 +5,7 @@ import threading
 import secrets
 import tempfile
 from flask import Flask, render_template, request, jsonify, send_file
-from core_db import IS_CLOUD, init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel
+from core_db import IS_CLOUD, init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel, save_active_orders_file, get_active_orders_file, clear_active_orders_file
 from core_parser import parse_order_file
 
 app = Flask(__name__)
@@ -59,6 +59,10 @@ def load_recent_download():
 
     try:
         orders = parse_order_file(latest_fp)
+        try:
+            save_active_orders_file(latest_name, orders)
+        except Exception:
+            pass
         return jsonify({
             'status': 'success',
             'filename': latest_name,
@@ -84,6 +88,10 @@ def upload_orders():
 
     try:
         orders = parse_order_file(temp_path)
+        try:
+            save_active_orders_file(file.filename, orders)
+        except Exception:
+            pass
         return jsonify({
             'status': 'success',
             'filename': file.filename,
@@ -192,6 +200,25 @@ def get_proof(record_id):
     if not record:
         return jsonify({'status': 'error', 'message': 'Kayıt bulunamadı'}), 404
     return jsonify({'status': 'success', 'record': record})
+
+
+@app.route('/api/get-current-orders', methods=['GET'])
+def get_current_orders():
+    data = get_active_orders_file()
+    if data and data.get('orders'):
+        return jsonify({
+            'status': 'success',
+            'filename': data.get('filename', 'Aktif Siparisler'),
+            'updated_at': data.get('updated_at', ''),
+            'order_count': len(data.get('orders', [])),
+            'orders': data.get('orders', [])
+        })
+    return jsonify({'status': 'empty', 'message': 'Kayitli aktif siparis bulunmuyor', 'orders': []})
+
+@app.route('/api/clear-current-orders', methods=['POST'])
+def clear_current_orders():
+    clear_active_orders_file()
+    return jsonify({'status': 'success', 'message': 'Aktif siparis listesi temizlendi'})
 
 def open_browser():
     webbrowser.open(f'http://127.0.0.1:{PORT}')

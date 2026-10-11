@@ -300,3 +300,42 @@ def export_records_to_excel(records, output_path=None):
     if output_path:
         wb.save(output_path)
     return wb
+
+
+def save_active_orders_file(filename, orders):
+    data_dir = get_base_data_dir()
+    target = os.path.join(data_dir, 'active_orders.json')
+    try:
+        payload = {
+            'filename': filename,
+            'updated_at': get_now_istanbul().strftime('%Y-%m-%d %H:%M:%S'),
+            'orders': orders
+        }
+        with open(target, 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False, indent=2)
+        return True
+    except Exception as e:
+        print(f'Aktif siparis kaydetme hatasi: {e}')
+        return False
+
+def get_active_orders_file():
+    data_dir = get_base_data_dir()
+    target = os.path.join(data_dir, 'active_orders.json')
+    if os.path.exists(target):
+        try:
+            with open(target, 'r', encoding='utf-8') as f:
+                return json.load(f)
+        except Exception as e:
+            print(f'Aktif siparis okuma hatasi: {e}')
+    return None
+
+def clear_active_orders_file():
+    data_dir = get_base_data_dir()
+    target = os.path.join(data_dir, 'active_orders.json')
+    if os.path.exists(target):
+        try:
+            os.remove(target)
+            return True
+        except Exception:
+            pass
+    return False
