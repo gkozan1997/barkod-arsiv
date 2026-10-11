@@ -14,7 +14,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.9">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=5.0">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -164,6 +164,11 @@
                                         <span class="badge-val"><span id="scanCounterVal">0</span> <small>Adet</small></span>
                                     </div>
                                 </div>
+
+                                <!-- SAYAÇ SIFIRLAMA BUTONU -->
+                                <button class="btn-counter-reset" id="btnResetScanCounter" type="button" onclick="window.resetScanCounter && window.resetScanCounter()" title="Okutulan ürün sayacını sıfırla">
+                                    🔄 Sıfırla
+                                </button>
 
                                 <button class="btn-cam" id="btnToggleCamOrder" title="Kamera ile Tara">📷</button>
                                 <button class="btn-secondary btn-sm" id="btnResetToStep1" title="Kargo Barkodu okuma adımına dön">Başa Dön ↺</button>
@@ -564,6 +569,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.9"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=5.0"></script>
 </body>
 </html>

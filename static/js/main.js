@@ -84,6 +84,51 @@ function updateScanCounters(lastCode = '', lastName = '') {
     }
 }
 
+window.resetScanCounter = function() {
+    const totalCurrent = getTotalScannedUnitsCount();
+    if (totalCurrent === 0) {
+        const alertBox = document.getElementById('orderScanAlert');
+        showAlert(alertBox, 'info', 'ℹ️ Sayaç zaten 0 adette.');
+        return;
+    }
+
+    if (!confirm(`Okutulan ürün sayacını (${totalCurrent} Adet) sıfırlamak istediğinize emin misiniz?`)) {
+        return;
+    }
+
+    // 1. Tüm yüklü siparişlerdeki okutulma durumlarını sıfırla
+    if (Array.isArray(loadedOrders)) {
+        loadedOrders.forEach(order => {
+            order.tamamlandi = false;
+            if (order.urunler) {
+                order.urunler.forEach(item => {
+                    item.tamamlandi = false;
+                    item.okunan_adet = 0;
+                    item.seri_nolar = [];
+                });
+            }
+        });
+        saveOrdersToStorage(loadedFileName, loadedOrders);
+    }
+
+    // 2. Canlı sayaçları ve UI bileşenlerini güncelle
+    updateScanCounters();
+    renderOrderCards(document.getElementById('orderFilterInput')?.value.trim().toLowerCase() || '');
+    if (activeOrderIndex !== -1) {
+        renderActiveOrderItems();
+        updateOrderProgress();
+    }
+
+    // 3. Teyit şeridini gizle
+    const confirmBar = document.getElementById('scanConfirmationBar');
+    if (confirmBar) confirmBar.style.display = 'none';
+
+    // 4. Kullanıcıya net bildirim ver
+    const alertBox = document.getElementById('orderScanAlert');
+    showAlert(alertBox, 'success', '🎯 Okutma sayacı başarıyla sıfırlandı! (0 Adet)');
+    playSuccessBeep();
+};
+
 // ==============================================================
 // BARKOD & SERİ NO ARŞİVLEME SİSTEMİ - SAĞLAM VE HIZLI JS MOTORU
 // ==============================================================
@@ -624,6 +669,16 @@ function initOrderWorkflow() {
                 if (code) {
                     handleSmartScan(code);
                 }
+            }
+        });
+    }
+
+    const resetCounterBtn = document.getElementById('btnResetScanCounter');
+    if (resetCounterBtn) {
+        resetCounterBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (typeof window.resetScanCounter === 'function') {
+                window.resetScanCounter();
             }
         });
     }
