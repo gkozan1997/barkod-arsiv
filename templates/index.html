@@ -10,7 +10,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@500;700&display=swap" rel="stylesheet">
     <!-- QR / Barcode Scanner CDN -->
     <script src="{{ url_for('static', filename='js/html5-qrcode.min.js') }}"></script>
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.3">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}?v=4.4">
 
     <!-- ANINDA VE KESİNTİSİZ ÇALIŞAN TIKLAMA & SEKME DESTEĞİ -->
     <script>
@@ -99,25 +99,8 @@
         <!-- MAIN CONTENT AREA -->
         <main class="main-content">
             
-            <!-- TAB 1: SİPARİŞ & BARKOD OKUTMA (ANA EKRAN - ODAKLI VE FERAH) -->
+            <!-- TAB 1: SİPARİŞ & BARKOD OKUTMA (ANA EKRAN - 100% ODAKLI VE FERAH) -->
             <section id="tab-siparis" class="tab-pane active">
-                <div class="excel-upload-bar">
-                    <div class="upload-dropzone" id="excelDropzone">
-                        <div class="dropzone-icon">📥</div>
-                        <div class="dropzone-text" id="dropzoneText">
-                            <strong id="dropzoneMainTitle">Pazaryeri Excel Sipariş Listesini Sürükleyin veya Seçin</strong>
-                            <span id="dropzoneSubtitle">(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb. • Yeni Excel yüklenene kadar geçerli kalır)</span>
-                        </div>
-                        <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" onchange="handleFileInputChange(this.files)" style="display: none;">
-                        <div class="dropzone-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
-                            <button class="btn-primary" type="button" id="btnLoadRecentExcel" onclick="window.loadRecentExcel && window.loadRecentExcel()">⚡ İndirilenler'den Getir</button>
-                            <label for="excelFileInput" class="btn-secondary" id="browseExcelBtn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Excel Seç</label>
-                            <button class="btn-primary btn-packages-quick" type="button" id="btnGoToPackages" onclick="switchTab('tab-paketler')" style="display: none; background: linear-gradient(135deg, #0EA5E9, #2563EB);">📋 Paketleri Gör (<span id="btnPkgCount">0</span>)</button>
-                            <button class="btn-secondary btn-clear-quick" type="button" id="btnClearOrders" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" style="display: none; color: #F87171; border-color: rgba(239, 68, 68, 0.35);" title="Yüklü Excel listesini temizle">🗑️ Temizle</button>
-                        </div>
-                    </div>
-                </div>
-
                 <!-- ANA EKRANDA DOĞRUDAN TAM GENİŞLİKTE AKTİF SİPARİŞ VE SERİ NO OKUTMA KONSOLU -->
                 <div class="scan-single-console">
                     <div class="col-card active-order-card">
@@ -133,7 +116,7 @@
                                     <div class="stat-box-lbl">Okutulan Adet</div>
                                 </div>
                                 <button class="btn-secondary btn-sm btn-nav-to-pkgs" type="button" onclick="switchTab('tab-paketler')" style="padding: 8px 14px; font-weight: 600; border-color: rgba(59, 130, 246, 0.4); color: #93C5FD;">
-                                    📋 Paket Listesi (<span id="headerPkgCount">0</span>) ➔
+                                    📋 Paketler & Excel (<span id="headerPkgCount">0</span>) ➔
                                 </button>
                                 <div class="order-progress-box">
                                     <div class="progress-percent" id="orderProgressPercent">%0</div>
@@ -233,10 +216,30 @@
                 </div>
             </section>
 
-            <!-- TAB: PAKETLER & KARGO BARKODLARI (YUKARIDAKİ ÖZEL SEKME) -->
+            <!-- TAB: PAKETLER & KARGO BARKODLARI (EXCEL YÖNETİMİ VE TÜM PAKET LİSTESİ) -->
             <section id="tab-paketler" class="tab-pane">
                 <div class="packages-tab-container">
-                    <!-- ÜST BİLGİ & ARAÇ ÇUBUĞU -->
+                    
+                    <!-- EXCEL YÜKLEME VE YÜKLÜ LİSTE ALANI (ARTIK BURADA!) -->
+                    <div class="excel-upload-bar">
+                        <div class="upload-dropzone" id="excelDropzone">
+                            <div class="dropzone-icon">📥</div>
+                            <div class="dropzone-text" id="dropzoneText">
+                                <strong id="dropzoneMainTitle">Pazaryeri Excel Sipariş Listesini Sürükleyin veya Seçin</strong>
+                                <span id="dropzoneSubtitle">(Trendyol, Hepsiburada, Amazon, Çiçeksepeti, Pazarama vb. • Yeni Excel yüklenene kadar geçerli kalır)</span>
+                            </div>
+                            <input type="file" id="excelFileInput" accept=".xlsx,.xls,.csv" onchange="handleFileInputChange(this.files)" style="display: none;">
+                            <div class="dropzone-actions" style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+                                <button class="btn-primary" type="button" id="btnLoadRecentExcel" onclick="window.loadRecentExcel && window.loadRecentExcel()">⚡ İndirilenler'den Getir</button>
+                                <label for="excelFileInput" class="btn-secondary" id="browseExcelBtn" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; margin: 0; user-select: none;">📁 Excel Seç</label>
+                                <button class="btn-secondary btn-sm" type="button" onclick="window.syncOrdersNow && window.syncOrdersNow()" id="btnSyncCloud" style="color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Telefon ve tüm cihazlarla bulut eşitle">🔄 Bulut Eşitle</button>
+                                <button class="btn-primary btn-packages-quick" type="button" id="btnGoToScan" onclick="switchTab('tab-siparis')" style="background: linear-gradient(135deg, #10B981, #059669); border: none;">🎯 Taramaya Başla ➔</button>
+                                <button class="btn-secondary btn-clear-quick" type="button" id="btnClearOrders" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" style="display: none; color: #F87171; border-color: rgba(239, 68, 68, 0.35);" title="Yüklü Excel listesini temizle">🗑️ Temizle</button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- PAKETLER BAŞLIĞI VE CANLI ARAÇ ÇUBUĞU -->
                     <div class="packages-header-card">
                         <div class="packages-header-top">
                             <div>
@@ -244,12 +247,10 @@
                                 <p class="packages-subtitle">Excel'den aktarılan tüm koli paketleri. Listeden herhangi bir pakete tıklayarak hemen tarama ekranına geçebilirsiniz.</p>
                             </div>
                             <div class="packages-meta-box">
-                                <button class="btn-secondary btn-sm" onclick="window.syncOrdersNow && window.syncOrdersNow()" id="btnSyncCloud" style="color: #38BDF8; border-color: rgba(56, 189, 248, 0.4);" title="Telefon ve tüm cihazlarla bulut eşitle">🔄 Bulut Eşitle</button>
                                 <div class="active-file-pill" id="activeFileBadge">
                                     <span class="file-icon">📁</span>
                                     <span id="activeFileNameText">Henüz Excel Yüklenmedi</span>
                                 </div>
-                                <button class="btn-secondary btn-sm" onclick="window.clearLoadedOrders && window.clearLoadedOrders()" id="btnClearPackagesTab" title="Yüklü listeyi sıfırla" style="color: #F87171; border-color: rgba(239, 68, 68, 0.35);">🗑️ Listeyi Sıfırla</button>
                             </div>
                         </div>
 
@@ -268,7 +269,7 @@
                     <!-- PAKET KARTLARI GRİD LİSTESİ -->
                     <div class="order-cards-grid" id="orderCardsContainer">
                         <div class="empty-state">
-                            Henüz sipariş yüklenmedi.<br>Yukarıdaki 'Sipariş & Barkod Okutma' sekmesinden Excel dosyanızı seçin.
+                            Henüz sipariş yüklenmedi.<br>Yukarıdaki alandan Excel dosyanızı seçin.
                         </div>
                     </div>
                 </div>
@@ -559,6 +560,6 @@
     </div>
 
     <!-- Scripts -->
-    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.3"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}?v=4.4"></script>
 </body>
 </html>
