@@ -1,6 +1,7 @@
 [
   {
     "id": 1,
+    "kargo_barkodu": null,
     "siparis_no": "11680652301",
     "musteri_adi": "Erol Soylu",
     "urun_adi": "Beko KMB 1011 I 10 kg Çamaşır Kurutma Makinesi [Renk:Beyaz]",
@@ -10,11 +11,11 @@
     "kayit_gunu": "2026-10-10",
     "okutma_yontemi": "El Terminali / Eşleme",
     "notlar": "",
-    "durum": "Gecerli",
-    "kargo_barkodu": null
+    "durum": "Gecerli"
   },
   {
     "id": 2,
+    "kargo_barkodu": "1099201",
     "siparis_no": "1099201",
     "musteri_adi": "ÇİĞDEM KÜSBECİ",
     "urun_adi": "Beko 31525 S Split Klima",
@@ -24,8 +25,7 @@
     "kayit_gunu": "2026-10-11",
     "okutma_yontemi": "El Terminali",
     "notlar": "",
-    "durum": "Gecerli",
-    "kargo_barkodu": "1099201"
+    "durum": "Gecerli"
   },
   {
     "id": 3,
@@ -54,33 +54,5 @@
     "okutma_yontemi": "El Terminali",
     "notlar": "",
     "durum": "Gecerli"
-  },
-  {
-    "id": 8,
-    "siparis_no": "1099236",
-    "musteri_adi": "YATAĞAN TERMİK SANTRALİ",
-    "urun_adi": "Beko ADP61420B Duvar Tipi Davlumbaz",
-    "barkod_seri_no": "12347567",
-    "pazaryeri": "Web Sitesi",
-    "kayit_tarihi": "2026-10-11 23:27:13",
-    "kayit_gunu": "2026-10-11",
-    "okutma_yontemi": "El Terminali",
-    "notlar": "",
-    "durum": "Gecerli",
-    "kargo_barkodu": "1099236"
-  },
-  {
-    "id": 9,
-    "siparis_no": "1099236",
-    "musteri_adi": "YATAĞAN TERMİK SANTRALİ",
-    "urun_adi": "Beko ADP61420B Duvar Tipi Davlumbaz",
-    "barkod_seri_no": "12347567",
-    "pazaryeri": "Web Sitesi",
-    "kayit_tarihi": "2026-10-11 23:27:13",
-    "kayit_gunu": "2026-10-11",
-    "okutma_yontemi": "El Terminali",
-    "notlar": "",
-    "durum": "Gecerli",
-    "kargo_barkodu": "1099236"
   }
 ]
