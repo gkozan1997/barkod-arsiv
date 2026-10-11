@@ -1,4 +1,4 @@
-from core_cloud_sync import save_orders_to_cloud, get_orders_from_cloud, clear_orders_from_cloud, update_order_progress_cloud
+from core_cloud_sync import save_orders_to_cloud, get_orders_from_cloud, clear_orders_from_cloud, update_order_progress_cloud, remove_serial_from_cloud, update_serial_in_cloud
 import os
 import io
 import webbrowser
@@ -6,7 +6,7 @@ import threading
 import secrets
 import tempfile
 from flask import Flask, render_template, request, jsonify, send_file
-from core_db import IS_CLOUD, init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel, save_active_orders_file, get_active_orders_file, clear_active_orders_file
+from core_db import IS_CLOUD, init_db, add_barcode_record, check_duplicate, search_records, get_stats, get_record_by_id, export_records_to_excel, save_active_orders_file, get_active_orders_file, clear_active_orders_file, delete_record_by_id, delete_record_by_barcode, update_record_by_id, update_record_by_barcode
 from core_parser import parse_order_file
 
 app = Flask(__name__)
@@ -274,6 +274,81 @@ def get_proof(record_id):
         return jsonify({'status': 'error', 'message': 'Kayıt bulunamadı'}), 404
     return jsonify({'status': 'success', 'record': record})
 
+
+
+@app.route('/api/delete-record/<int:record_id>', methods=['POST', 'DELETE'])
+def delete_record_route(record_id):
+    success, msg = delete_record_by_id(record_id)
+    if not success:
+        return jsonify({'status': 'error', 'message': msg}), 400
+    stats = get_stats()
+    return jsonify({
+        'status': 'success',
+        'message': 'Kayıt başarıyla silindi',
+        'stats': {
+            'toplam_kayit': stats['toplam_kayit'],
+            'bugun_kayit': stats['bugun_kayit']
+        }
+    })
+
+@app.route('/api/delete-record-by-barcode', methods=['POST'])
+@app.route('/api/remove-barcode', methods=['POST'])
+def remove_barcode_route():
+    data = request.get_json() or {}
+    barkod_seri_no = data.get('barkod_seri_no', '').strip()
+    kargo_barkodu = data.get('kargo_barkodu', '').strip()
+    siparis_no = data.get('siparis_no', '').strip()
+
+    if not barkod_seri_no:
+        return jsonify({'status': 'error', 'message': 'Barkod / Seri No boş olamaz'}), 400
+
+    try:
+        remove_serial_from_cloud(kargo_barkodu, barkod_seri_no)
+    except Exception:
+        pass
+
+    success, msg = delete_record_by_barcode(barkod_seri_no, kargo_barkodu=kargo_barkodu, siparis_no=siparis_no)
+    stats = get_stats()
+    return jsonify({
+        'status': 'success',
+        'message': msg,
+        'stats': {
+            'toplam_kayit': stats['toplam_kayit'],
+            'bugun_kayit': stats['bugun_kayit']
+        }
+    })
+
+@app.route('/api/update-record/<int:record_id>', methods=['POST', 'PUT'])
+def update_record_route(record_id):
+    data = request.get_json() or {}
+    success, msg = update_record_by_id(record_id, data)
+    if not success:
+        return jsonify({'status': 'error', 'message': msg}), 400
+    rec = get_record_by_id(record_id)
+    return jsonify({
+        'status': 'success',
+        'message': 'Kayıt güncellendi',
+        'record': rec
+    })
+
+@app.route('/api/update-barcode', methods=['POST'])
+def update_barcode_route():
+    data = request.get_json() or {}
+    old_sn = data.get('old_barkod_seri_no', '').strip()
+    new_sn = data.get('new_barkod_seri_no', '').strip()
+    kargo_barkodu = data.get('kargo_barkodu', '').strip()
+    siparis_no = data.get('siparis_no', '').strip()
+
+    if not old_sn or not new_sn:
+        return jsonify({'status': 'error', 'message': 'Eski ve yeni barkod belirtilmelidir'}), 400
+
+    try:
+        update_serial_in_cloud(kargo_barkodu, old_sn, new_sn)
+    except Exception:
+        pass
+
+    success, msg = update_record_by_barcode(old_sn, new_sn, kargo_barkodu=kargo_barkodu, siparis_no=siparis_no)
+    return jsonify({'status': 'success', 'message': msg})
 
 @app.route('/api/get-current-orders', methods=['GET'])
 def get_current_orders():
