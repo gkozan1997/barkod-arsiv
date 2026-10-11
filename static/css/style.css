@@ -1635,3 +1635,438 @@ body {
     color: #34D399;
     font-weight: 600;
 }
+
+
+/* ==============================================================
+   MOBİL & TABLET UYUMLULUK MOTORU (MOBILE-FIRST RESPONSIVE)
+   ============================================================== */
+
+@media (max-width: 768px) {
+    /* Genel yerleşim ve güvenli alanlar */
+    body {
+        font-size: 14px;
+        -webkit-tap-highlight-color: transparent;
+        padding-bottom: env(safe-area-inset-bottom, 10px);
+    }
+
+    .app-layout {
+        padding: 10px 10px 24px 10px;
+        gap: 12px;
+        max-width: 100%;
+    }
+
+    /* Üst Başlık (Header) */
+    .app-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 12px 14px;
+    }
+
+    .brand {
+        gap: 10px;
+    }
+
+    .brand-icon {
+        width: 38px;
+        height: 38px;
+        min-width: 38px;
+        font-size: 20px;
+    }
+
+    .brand-title {
+        font-size: 16.5px;
+        line-height: 1.2;
+    }
+
+    .brand-subtitle {
+        display: none; /* Mobilde dikey yer kazanmak için */
+    }
+
+    .header-right {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        width: 100%;
+        gap: 8px;
+    }
+
+    .status-pill, .stats-badge {
+        padding: 5px 10px;
+        font-size: 11.5px;
+    }
+
+    /* Yatay Kaydırılabilir Dokunmatik Sekmeler (Tabs Nav) */
+    .main-tabs-nav {
+        display: flex;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scroll-snap-type: x mandatory;
+        scrollbar-width: none;
+        padding: 5px;
+        gap: 6px;
+        margin: 0 -2px;
+    }
+
+    .main-tabs-nav::-webkit-scrollbar {
+        display: none;
+    }
+
+    .nav-tab {
+        flex: 0 0 auto;
+        white-space: nowrap;
+        padding: 10px 14px;
+        font-size: 13px;
+        scroll-snap-align: start;
+        border-radius: 8px;
+    }
+
+    .nav-tab .tab-icon {
+        font-size: 16px;
+    }
+
+    .nav-counter-pill {
+        font-size: 10px;
+        padding: 2px 6px;
+    }
+
+    /* 1. SEKME: AKTİF TARAMA KONSOLU */
+    .active-order-card {
+        padding: 14px;
+    }
+
+    .active-order-header {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+
+    .active-order-title {
+        font-size: 17px;
+        line-height: 1.3;
+        word-break: break-word;
+    }
+
+    .active-order-customer {
+        font-size: 12.5px;
+        line-height: 1.4;
+        margin-top: 4px;
+    }
+
+    /* Header Stat & Aksiyon Çubuğu */
+    .active-order-header > div:last-child {
+        display: grid !important;
+        grid-template-columns: 1fr auto auto;
+        gap: 8px !important;
+        align-items: center;
+        width: 100%;
+        margin-top: 6px;
+    }
+
+    .header-stat-box {
+        min-width: unset;
+        padding: 6px 10px;
+    }
+
+    .stat-box-val {
+        font-size: 15px;
+    }
+
+    .btn-nav-to-pkgs {
+        padding: 8px 10px !important;
+        font-size: 12px !important;
+        white-space: nowrap;
+    }
+
+    .order-progress-box {
+        padding: 6px 10px;
+    }
+
+    /* 2 Adımlı Stepper Mobilde */
+    .workflow-stepper {
+        padding: 8px 10px;
+        gap: 6px;
+    }
+
+    .step-chip {
+        padding: 6px 8px;
+        gap: 8px;
+    }
+
+    .step-badge {
+        width: 24px;
+        height: 24px;
+        min-width: 24px;
+        font-size: 12px;
+    }
+
+    .step-info strong {
+        font-size: 11.5px;
+        white-space: nowrap;
+    }
+
+    .step-info small {
+        font-size: 9.5px;
+    }
+
+    .step-divider {
+        font-size: 11px;
+    }
+
+    /* Giriş Kutusu ve Aksiyonlar (Mobilde Ergonomik Düzen) */
+    .scanner-input-box {
+        padding: 12px;
+        margin-top: 12px;
+    }
+
+    .input-with-actions {
+        display: grid;
+        grid-template-columns: 1fr auto auto;
+        grid-template-rows: auto auto;
+        gap: 8px;
+    }
+
+    .scan-large-input {
+        grid-column: 1 / -1;
+        width: 100%;
+        box-sizing: border-box;
+        font-size: 16px !important; /* iOS Safari otomatik zoom'unu engeller */
+        padding: 13px 14px;
+        height: 50px;
+    }
+
+    .scan-counter-badge {
+        grid-column: 1 / 2;
+        height: 44px;
+        padding: 4px 10px;
+        gap: 6px;
+    }
+
+    .scan-counter-badge .badge-icon {
+        font-size: 16px;
+    }
+
+    .scan-counter-badge .badge-val {
+        font-size: 16px;
+    }
+
+    .btn-cam {
+        height: 44px;
+        min-width: 44px;
+        padding: 0 14px;
+        font-size: 18px;
+    }
+
+    #btnResetToStep1 {
+        height: 44px;
+        padding: 0 12px;
+        font-size: 12px;
+        white-space: nowrap;
+    }
+
+    /* Son Teyit Şeridi */
+    .scan-confirmation-bar {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 6px;
+        padding: 8px 10px;
+    }
+
+    .confirm-left {
+        width: 100%;
+        white-space: normal;
+        flex-wrap: wrap;
+    }
+
+    .confirm-code {
+        font-size: 13px;
+    }
+
+    .confirm-name {
+        font-size: 11.5px;
+    }
+
+    .confirm-count-tag {
+        align-self: flex-end;
+        font-size: 11px;
+        padding: 2px 8px;
+    }
+
+    /* Ürün Kalemleri Tablosu */
+    .items-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -6px;
+        padding: 0 6px;
+    }
+
+    .items-table {
+        min-width: 540px;
+    }
+
+    .items-table th, .items-table td {
+        padding: 8px 10px;
+        font-size: 12.5px;
+    }
+
+    /* 2. SEKME: PAKETLER & KARGO BARKODLARI */
+    .packages-tab-container {
+        gap: 12px;
+    }
+
+    .upload-dropzone {
+        flex-direction: column;
+        align-items: stretch;
+        text-align: center;
+        padding: 16px 12px;
+        gap: 12px;
+    }
+
+    .dropzone-icon {
+        font-size: 32px;
+    }
+
+    .dropzone-text strong {
+        font-size: 14.5px;
+    }
+
+    .dropzone-text span {
+        font-size: 11.5px;
+    }
+
+    /* Butonlar 2 Sütunlu Grid Dokunmatik */
+    .dropzone-actions {
+        display: grid !important;
+        grid-template-columns: 1fr 1fr;
+        gap: 8px !important;
+        width: 100%;
+    }
+
+    .dropzone-actions button,
+    .dropzone-actions label {
+        width: 100%;
+        min-height: 44px;
+        font-size: 12.5px;
+        padding: 10px 8px;
+        text-align: center;
+        justify-content: center;
+    }
+
+    .dropzone-actions #btnGoToScan {
+        grid-column: 1 / -1; /* Tam genişlikte yeşil aksiyon butonu */
+    }
+
+    .packages-header-card {
+        padding: 14px 12px;
+        gap: 10px;
+    }
+
+    .packages-header-top {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 8px;
+    }
+
+    .packages-title {
+        font-size: 16.5px;
+    }
+
+    .packages-subtitle {
+        font-size: 12px;
+    }
+
+    .packages-toolbar-grid {
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .search-wrap {
+        min-width: 100%;
+        width: 100%;
+    }
+
+    .filter-input-large {
+        font-size: 16px !important;
+        padding: 11px 12px;
+    }
+
+    .status-filters-pills {
+        display: grid;
+        grid-template-columns: 1fr 1fr 1fr;
+        gap: 6px;
+        width: 100%;
+    }
+
+    .filter-pill {
+        padding: 8px 4px;
+        text-align: center;
+        font-size: 11.5px;
+        white-space: nowrap;
+    }
+
+    /* Paket Kartları Mobilde Tek Sütun */
+    .order-cards-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+        max-height: calc(100vh - 200px);
+        padding-right: 2px;
+    }
+
+    .order-cards-grid .order-card-item {
+        padding: 13px;
+        gap: 8px;
+    }
+
+    /* 3. SEKME: SERBEST OKUTMA */
+    .free-scan-grid {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .form-input {
+        font-size: 16px !important;
+        padding: 10px 12px;
+    }
+
+    /* 4. SEKME: ARAMA & ARŞİV */
+    .search-bar-grid {
+        grid-template-columns: 1fr;
+        gap: 8px;
+    }
+
+    .search-input-field {
+        font-size: 16px !important;
+    }
+
+    .recent-table-wrap,
+    .archive-table-wrap {
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+    }
+
+    /* Kamera Modalı Mobilde */
+    .cam-modal-box {
+        width: 95vw !important;
+        max-width: 95vw !important;
+        margin: 10px auto;
+        padding: 14px;
+    }
+
+    .cam-video-wrap {
+        min-height: 250px;
+    }
+}
+
+/* Ekstra küçük ekranlar (<= 380px) */
+@media (max-width: 380px) {
+    .brand-title {
+        font-size: 15px;
+    }
+    .nav-tab {
+        padding: 8px 10px;
+        font-size: 12px;
+    }
+    .dropzone-actions {
+        grid-template-columns: 1fr;
+    }
+}
