@@ -2106,3 +2106,28 @@ body {
 .btn-counter-reset:active {
     transform: translateY(0);
 }
+
+/* Coklu Adet & Siradaki Kalem Vurgusu */
+.items-table tr.active-pending-row {
+    background: rgba(56, 189, 248, 0.09) !important;
+    border-left: 3px solid #38BDF8 !important;
+}
+
+.items-table tr.in-progress-row {
+    background: rgba(245, 158, 11, 0.08) !important;
+    border-left: 3px solid #F59E0B !important;
+}
+
+.next-target-tag {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 2px 8px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #38BDF8;
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: 999px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}

@@ -202,16 +202,30 @@ def parse_order_file(file_path):
                 'tamamlandi': False
             }
 
-        item_id = f"item_{len(packages_map[key]['urunler']) + 1}"
-        packages_map[key]['urunler'].append({
-            'item_id': item_id,
-            'urun_adi': urun_adi,
-            'stok_kod': stok_kod,
-            'gtin': gtin,
-            'adet': adet,
-            'okunan_adet': 0,
-            'seri_nolar': [],
-            'tamamlandi': False
-        })
+        # Aynı pakette aynı ürün varsa (aynı stok kodu veya aynı ürün adı), adetleri birleştir
+        existing_item = None
+        for itm in packages_map[key]['urunler']:
+            if stok_kod and itm.get('stok_kod'):
+                if itm['stok_kod'].strip().lower() == stok_kod.strip().lower():
+                    existing_item = itm
+                    break
+            elif itm.get('urun_adi') and itm['urun_adi'].strip().lower() == urun_adi.strip().lower():
+                existing_item = itm
+                break
+
+        if existing_item:
+            existing_item['adet'] += adet
+        else:
+            item_id = f"item_{len(packages_map[key]['urunler']) + 1}"
+            packages_map[key]['urunler'].append({
+                'item_id': item_id,
+                'urun_adi': urun_adi,
+                'stok_kod': stok_kod,
+                'gtin': gtin,
+                'adet': adet,
+                'okunan_adet': 0,
+                'seri_nolar': [],
+                'tamamlandi': False
+            })
 
     return list(packages_map.values())

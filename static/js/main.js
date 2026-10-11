@@ -15,8 +15,10 @@ function getTotalScannedUnitsCount() {
         loadedOrders.forEach(order => {
             if (order.urunler) {
                 order.urunler.forEach(item => {
-                    if (item.tamamlandi) {
-                        totalDone += (item.okunan_adet || item.adet || 1);
+                    if (item.okunan_adet !== undefined && item.okunan_adet !== null && item.okunan_adet > 0) {
+                        totalDone += item.okunan_adet;
+                    } else if (item.tamamlandi) {
+                        totalDone += (item.adet || 1);
                     }
                 });
             }
@@ -140,6 +142,7 @@ let loadedFileName = '';
 let activeOrderIndex = -1;
 let scanStep = 1; // 1: Kargo Barkodu, 2: Ürün Seri No
 let packageStatusFilter = 'all'; // 'all', 'pending', 'completed'
+let activePendingItemIndex = -1;
 
 const ORDERS_STORAGE_KEY = 'barkod_arsiv_persisted_orders_v1';
 const ORDERS_META_KEY = 'barkod_arsiv_persisted_meta_v1';
@@ -602,13 +605,36 @@ function setScanStep(step) {
         if (chip2) chip2.className = 'step-chip active-step2';
         const order = (activeOrderIndex !== -1 && loadedOrders[activeOrderIndex]) ? loadedOrders[activeOrderIndex] : null;
         const musteriStr = order ? `(${order.musteri_adi})` : '';
+        const pendingItem = order ? (
+            (activePendingItemIndex !== -1 && order.urunler[activePendingItemIndex] && !order.urunler[activePendingItemIndex].tamamlandi)
+                ? order.urunler[activePendingItemIndex]
+                : order.urunler.find(i => !i.tamamlandi)
+        ) : null;
+
+        let itemInfo = '';
+        if (pendingItem) {
+            const nextCount = (pendingItem.okunan_adet || 0) + 1;
+            const totalCount = pendingItem.adet || 1;
+            itemInfo = totalCount > 1 
+                ? ` — Beklenen: ${pendingItem.urun_adi.substring(0, 26)}... [${nextCount}/${totalCount}. Adet]`
+                : ` — Beklenen: ${pendingItem.urun_adi.substring(0, 26)}...`;
+        }
         if (title) {
-            title.innerHTML = `🎯 2. Adım: Ürün Seri No / Barkodunu Okutun ${musteriStr}`;
+            title.innerHTML = `🎯 2. Adım: Ürün Seri No / Barkodunu Okutun ${musteriStr}${itemInfo}`;
             title.style.color = '#34D399';
         }
-        if (hint) hint.textContent = 'Pakete koyduğunuz cihazın seri numarasını (SN/IMEI) okutun';
+        if (hint) {
+            if (pendingItem && (pendingItem.adet || 1) > 1) {
+                const nextCount = (pendingItem.okunan_adet || 0) + 1;
+                hint.textContent = `Bu üründen ${pendingItem.adet} adet var. Şu an ${nextCount}/${pendingItem.adet}. adedin seri numarası/barkodu bekleniyor.`;
+            } else {
+                hint.textContent = 'Pakete koyduğunuz cihazın seri numarasını (SN/IMEI) veya barkodunu okutun';
+            }
+        }
         input.className = 'scan-large-input step2-mode';
-        input.placeholder = '2. ADIM: Ürün Seri Numarası / Barkod Okutun...';
+        input.placeholder = pendingItem && (pendingItem.adet || 1) > 1
+            ? `2. ADIM: ${(pendingItem.okunan_adet || 0) + 1}/${pendingItem.adet}. Adet Seri No / Barkod Okutun...`
+            : '2. ADIM: Ürün Seri Numarası / Barkod Okutun...';
     }
     input.disabled = false;
     input.value = '';
@@ -621,6 +647,7 @@ function setScanStep(step) {
 // --------------------------------------------------------------
 function resetToWaitingState() {
     activeOrderIndex = -1;
+    activePendingItemIndex = -1;
     setScanStep(1);
 
     const mBadge = document.getElementById('activeMarketplace');
@@ -778,7 +805,20 @@ async function processProductSerialScan(barcode) {
     const alertBox = document.getElementById('orderScanAlert');
     const scanInput = document.getElementById('activeScanInput');
 
-    const pendingItem = order.urunler.find(i => !i.tamamlandi);
+    let pendingItem = null;
+    if (activePendingItemIndex !== -1 && order.urunler[activePendingItemIndex] && !order.urunler[activePendingItemIndex].tamamlandi) {
+        pendingItem = order.urunler[activePendingItemIndex];
+    }
+    if (!pendingItem) {
+        pendingItem = order.urunler.find(i => !i.tamamlandi && (
+            (i.gtin && i.gtin.trim().toLowerCase() === barcode.trim().toLowerCase()) ||
+            (i.stok_kod && i.stok_kod.trim().toLowerCase() === barcode.trim().toLowerCase())
+        ));
+    }
+    if (!pendingItem) {
+        pendingItem = order.urunler.find(i => !i.tamamlandi);
+    }
+
     if (!pendingItem) {
         showAlert(alertBox, 'duplicate', 'Bu paketteki tüm ürünler zaten tamamlanmış!');
         scanInput.value = '';
@@ -806,23 +846,37 @@ async function processProductSerialScan(barcode) {
             if (!pendingItem.seri_nolar) pendingItem.seri_nolar = [];
             pendingItem.seri_nolar.push(barcode);
             pendingItem.okunan_adet = (pendingItem.okunan_adet || 0) + 1;
-            pendingItem.tamamlandi = true;
-            pendingItem.okunan_adet = pendingItem.adet;
+
+            const isItemDone = pendingItem.okunan_adet >= (pendingItem.adet || 1);
+            pendingItem.tamamlandi = isItemDone;
+
+            if (isItemDone && activePendingItemIndex !== -1) {
+                activePendingItemIndex = -1;
+            }
 
             renderActiveOrderItems();
             updateOrderProgress();
             renderOrderCards();
             updateScanCounters(barcode, pendingItem.urun_adi);
             updateHeaderStats(res.stats);
+            saveOrdersToStorage(loadedFileName, loadedOrders);
 
             const allDone = order.urunler.every(i => i.tamamlandi);
 
             if (res.is_duplicate) {
                 playWarningBuzzer();
-                showAlert(alertBox, 'duplicate', `⚠️ MÜKERRER UYARISI: Bu Seri No (${barcode}) daha önce kaydedilmiş! Yine de arşive mühürlendi.`);
+                if (isItemDone) {
+                    showAlert(alertBox, 'duplicate', `⚠️ MÜKERRER UYARISI: Bu Seri No (${barcode}) daha önce kaydedilmiş! Yine de arşive mühürlendi. [${pendingItem.okunan_adet}/${pendingItem.adet} Tamamlandı]`);
+                } else {
+                    showAlert(alertBox, 'duplicate', `⚠️ MÜKERRER UYARISI: Bu Seri No (${barcode}) daha önce kaydedilmiş! [${pendingItem.okunan_adet}/${pendingItem.adet} Okundu]. Lütfen bu ürünün ${pendingItem.okunan_adet + 1}. seri numarasını/barkodunu okutun.`);
+                }
             } else {
                 playSuccessBeep();
-                showAlert(alertBox, 'success', `✅ ÜRÜN MÜHÜRLENDİ: ${pendingItem.urun_adi.substring(0, 35)}... (Seri No: ${barcode})`);
+                if (isItemDone) {
+                    showAlert(alertBox, 'success', `✅ ÜRÜN MÜHÜRLENDİ & TAMAMLANDI (${pendingItem.okunan_adet}/${pendingItem.adet}): ${pendingItem.urun_adi.substring(0, 32)}... (Seri No: ${barcode})`);
+                } else {
+                    showAlert(alertBox, 'success', `✅ ADET MÜHÜRLENDİ (${pendingItem.okunan_adet}/${pendingItem.adet}): ${pendingItem.urun_adi.substring(0, 28)}... (Seri No: ${barcode}) — Lütfen bu ürünün ${pendingItem.okunan_adet + 1}. seri numarasını/barkodunu okutun!`);
+                }
             }
 
             if (allDone) {
@@ -832,6 +886,7 @@ async function processProductSerialScan(barcode) {
                     resetToWaitingState();
                 }, 1200);
             } else {
+                setScanStep(2);
                 scanInput.value = '';
                 scanInput.focus();
             }
@@ -898,6 +953,8 @@ function renderOrderCards(filterText = '') {
             : '<span class="status-badge-pending">Bekliyor ⏳</span>';
 
         const itemCount = order.urunler ? order.urunler.length : 1;
+        const totalUnits = order.urunler ? order.urunler.reduce((sum, i) => sum + (parseInt(i.adet, 10) || 1), 0) : 1;
+        const readUnits = order.urunler ? order.urunler.reduce((sum, i) => sum + (parseInt(i.okunan_adet, 10) || 0), 0) : 0;
 
         card.innerHTML = `
             <div class="card-item-top">
@@ -906,7 +963,7 @@ function renderOrderCards(filterText = '') {
             </div>
             <div class="card-customer" style="font-size: 15px; font-weight: 700; color: #F1F5F9;">${order.musteri_adi || 'Müşteri'}${sehirText}</div>
             <div class="card-item-summary" style="display: flex; justify-content: space-between; align-items: center; margin-top: 6px;">
-                <span style="font-size: 12px; color: var(--text-muted);">${itemCount} Kalem Ürün • Sipariş: ${order.siparis_no || '-'}</span>
+                <span style="font-size: 12px; color: var(--text-muted);">${itemCount} Kalem (${readUnits}/${totalUnits} Adet) • Sipariş: ${order.siparis_no || '-'}</span>
                 ${statusBadge}
             </div>
         `;
@@ -922,6 +979,7 @@ function renderOrderCards(filterText = '') {
 function selectOrder(index) {
     if (index < 0 || index >= loadedOrders.length) return;
     activeOrderIndex = index;
+    activePendingItemIndex = -1;
     const order = loadedOrders[index];
 
     // Otomatik olarak Sipariş & Tarama sekmesine geç
@@ -961,18 +1019,49 @@ function renderActiveOrderItems() {
     const order = loadedOrders[activeOrderIndex];
     tbody.innerHTML = '';
 
+    const currentPendingItem = (activePendingItemIndex !== -1 && order.urunler[activePendingItemIndex] && !order.urunler[activePendingItemIndex].tamamlandi)
+        ? order.urunler[activePendingItemIndex]
+        : order.urunler.find(i => !i.tamamlandi);
+
     order.urunler.forEach((item, itemIdx) => {
         const isDone = item.tamamlandi;
+        const isPendingTarget = (item === currentPendingItem && !isDone);
+        const inProgress = (!isDone && (item.okunan_adet || 0) > 0);
+
         const tr = document.createElement('tr');
-        if (isDone) tr.className = 'completed-row';
+        if (isDone) {
+            tr.className = 'completed-row';
+        } else if (isPendingTarget) {
+            tr.className = 'active-pending-row';
+        } else if (inProgress) {
+            tr.className = 'in-progress-row';
+        }
+
+        tr.style.cursor = isDone ? 'default' : 'pointer';
+        tr.title = isDone ? 'Tamamlandı' : 'Bu ürünü okutmak için tıklayın';
+        tr.addEventListener('click', () => {
+            if (!isDone) {
+                activePendingItemIndex = itemIdx;
+                renderActiveOrderItems();
+                setScanStep(2);
+            }
+        });
 
         const serialsHtml = (item.seri_nolar && item.seri_nolar.length > 0)
             ? item.seri_nolar.map(sn => `<span class="code-pill">${sn}</span>`).join(' ')
             : '<span class="text-muted">Okutulmadı</span>';
 
+        let statusIcon = '⏳';
+        if (isDone) statusIcon = '✅';
+        else if (inProgress) statusIcon = '🔄';
+
         tr.innerHTML = `
-            <td><span class="item-check-icon">${isDone ? '✅' : '⏳'}</span></td>
-            <td><strong>${item.urun_adi}</strong></td>
+            <td><span class="item-check-icon">${statusIcon}</span></td>
+            <td>
+                <strong>${item.urun_adi}</strong>
+                ${isPendingTarget ? '<span class="next-target-tag">Sıradaki</span>' : ''}
+                ${item.stok_kod ? `<div style="font-size: 11px; color: var(--text-muted); font-family: monospace;">Kod: ${item.stok_kod}</div>` : ''}
+            </td>
             <td style="text-align: center;"><strong>${item.okunan_adet || 0} / ${item.adet}</strong></td>
             <td>${serialsHtml}</td>
         `;
@@ -984,15 +1073,18 @@ function updateOrderProgress() {
     if (activeOrderIndex === -1) return;
     const order = loadedOrders[activeOrderIndex];
 
-    let totalItems = order.urunler.length;
-    let completedItems = order.urunler.filter(i => i.tamamlandi).length;
+    const totalQty = order.urunler.reduce((sum, i) => sum + (parseInt(i.adet, 10) || 1), 0);
+    const readQty = order.urunler.reduce((sum, i) => sum + (parseInt(i.okunan_adet, 10) || 0), 0);
 
-    let percent = totalItems > 0 ? Math.round((completedItems / totalItems) * 100) : 0;
+    const allItemsCompleted = order.urunler.length > 0 && order.urunler.every(i => i.tamamlandi);
+    let percent = totalQty > 0 ? Math.min(100, Math.round((readQty / totalQty) * 100)) : 0;
+    if (allItemsCompleted) percent = 100;
+
     const progressEl = document.getElementById('orderProgressPercent');
     if (progressEl) progressEl.textContent = `%${percent}`;
 
     const banner = document.getElementById('orderCompleteBanner');
-    if (percent === 100) {
+    if (percent === 100 && allItemsCompleted) {
         order.tamamlandi = true;
         if (banner) banner.style.display = 'flex';
     } else {
@@ -1284,13 +1376,17 @@ function updateCameraUIForStep(step) {
             const cKargo = document.getElementById('camBannerKargo');
             const cProd = document.getElementById('camBannerProduct');
 
-            const pending = order.urunler.find(i => !i.tamamlandi) || order.urunler[0];
+            const pending = (activePendingItemIndex !== -1 && order.urunler[activePendingItemIndex] && !order.urunler[activePendingItemIndex].tamamlandi)
+                ? order.urunler[activePendingItemIndex]
+                : (order.urunler.find(i => !i.tamamlandi) || order.urunler[0]);
             const completedCount = order.urunler.filter(i => i.tamamlandi).length;
 
             if (cCust) cCust.textContent = `👤 ${order.musteri_adi}`;
             if (cKargo) cKargo.textContent = `🏷️ ${order.kargo_barkodu || order.siparis_no}`;
             if (cProd && pending) {
-                cProd.innerHTML = `<strong>Beklenen:</strong> ${pending.urun_adi.substring(0, 45)} (${completedCount}/${order.urunler.length} Tamamlandı)`;
+                const curScan = (pending.okunan_adet || 0) + 1;
+                const qtyText = pending.adet > 1 ? ` [${curScan}/${pending.adet}. Adet]` : '';
+                cProd.innerHTML = `<strong>Beklenen:</strong> ${pending.urun_adi.substring(0, 45)}${qtyText} (${completedCount}/${order.urunler.length} Kalem)`;
             }
         }
         if (switchBtn) switchBtn.style.display = 'inline-block';
@@ -1475,7 +1571,9 @@ async function onCameraBarcodeDecoded(decodedText) {
                 return;
             }
 
-            const pendingItem = order.urunler.find(i => !i.tamamlandi);
+            const pendingItem = (activePendingItemIndex !== -1 && order.urunler[activePendingItemIndex] && !order.urunler[activePendingItemIndex].tamamlandi)
+                ? order.urunler[activePendingItemIndex]
+                : order.urunler.find(i => !i.tamamlandi);
             if (!pendingItem) {
                 playSuccessBeep();
                 if (statusText) statusText.textContent = `🎉 Bu paketin tüm ürünleri tamamlanmış! Sıradaki koliye geçiliyor...`;
@@ -1508,23 +1606,33 @@ async function onCameraBarcodeDecoded(decodedText) {
                 if (!pendingItem.seri_nolar) pendingItem.seri_nolar = [];
                 pendingItem.seri_nolar.push(cleanCode);
                 pendingItem.okunan_adet = (pendingItem.okunan_adet || 0) + 1;
-                pendingItem.tamamlandi = true;
-                pendingItem.okunan_adet = pendingItem.adet;
+
+                const isItemDone = pendingItem.okunan_adet >= (pendingItem.adet || 1);
+                pendingItem.tamamlandi = isItemDone;
+
+                if (isItemDone && activePendingItemIndex !== -1) {
+                    activePendingItemIndex = -1;
+                }
 
                 renderActiveOrderItems();
                 updateOrderProgress();
                 renderOrderCards();
                 updateScanCounters(cleanCode, pendingItem.urun_adi);
                 updateHeaderStats(res.stats);
+                saveOrdersToStorage(loadedFileName, loadedOrders);
 
                 const allDone = order.urunler.every(i => i.tamamlandi);
 
                 if (res.is_duplicate) {
                     playWarningBuzzer();
-                    if (statusText) statusText.innerHTML = `⚠️ <strong>MÜKERRER:</strong> ${cleanCode} daha önce kaydedilmiş! Mühürlendi.`;
+                    if (statusText) statusText.innerHTML = isItemDone
+                        ? `⚠️ <strong>MÜKERRER:</strong> ${cleanCode} daha önce kaydedilmiş! Mühürlendi. [${pendingItem.okunan_adet}/${pendingItem.adet} Tamamlandı]`
+                        : `⚠️ <strong>MÜKERRER:</strong> ${cleanCode} daha önce kaydedilmiş! [${pendingItem.okunan_adet}/${pendingItem.adet} Okundu - Sıradaki adedi tutun]`;
                 } else {
                     playSuccessBeep();
-                    if (statusText) statusText.innerHTML = `✅ <strong>MÜHÜRLENDİ:</strong> ${pendingItem.urun_adi.substring(0, 30)}... (${cleanCode})`;
+                    if (statusText) statusText.innerHTML = isItemDone
+                        ? `✅ <strong>TAMAMLANDI:</strong> ${pendingItem.urun_adi.substring(0, 25)}... (${cleanCode}) [${pendingItem.okunan_adet}/${pendingItem.adet}]`
+                        : `✅ <strong>ADET OKUNDU:</strong> ${pendingItem.urun_adi.substring(0, 25)}... (${cleanCode}) [${pendingItem.okunan_adet}/${pendingItem.adet} - Sıradaki adedi tutun]`;
                 }
 
                 if (allDone) {

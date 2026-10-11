@@ -178,16 +178,25 @@ def update_order_progress_cloud(kargo_barkodu, barcode_serial):
         if (clean_kargo and (o_kargo == clean_kargo or o_sip == clean_kargo)) or (not clean_kargo and barcode_serial):
             for item in order.get('urunler', []):
                 if not item.get('tamamlandi'):
-                    item['tamamlandi'] = True
                     if 'seri_nolar' not in item or not isinstance(item['seri_nolar'], list):
                         item['seri_nolar'] = []
                     item['seri_nolar'].append(barcode_serial)
-                    item['okunan_adet'] = item.get('adet', 1)
+
+                    cur_okunan = item.get('okunan_adet', 0) + 1
+                    target_adet = item.get('adet', 1)
+                    item['okunan_adet'] = cur_okunan
+                    if cur_okunan >= target_adet:
+                        item['tamamlandi'] = True
+                    else:
+                        item['tamamlandi'] = False
+
                     updated = True
                     break
             all_done = all(i.get('tamamlandi') for i in order.get('urunler', []))
             if all_done:
                 order['tamamlandi'] = True
+            else:
+                order['tamamlandi'] = False
             break
 
     if updated:
