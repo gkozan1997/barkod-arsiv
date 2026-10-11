@@ -1,4 +1,13 @@
-from core_cloud_sync import save_orders_to_cloud, get_orders_from_cloud, clear_orders_from_cloud, update_order_progress_cloud, remove_serial_from_cloud, update_serial_in_cloud
+from core_cloud_sync import (
+    save_orders_to_cloud,
+    get_orders_from_cloud,
+    clear_orders_from_cloud,
+    update_order_progress_cloud,
+    remove_serial_from_cloud,
+    update_serial_in_cloud,
+    sync_db_with_cloud_archive,
+    restore_scanned_status_from_archive,
+)
 import os
 import io
 import webbrowser
@@ -33,6 +42,7 @@ def index():
     stats = get_stats()
     return render_template('index.html', stats=stats)
 
+@app.route('/api/arsiv/load-recent-download', methods=['POST'])
 @app.route('/api/load-recent-download', methods=['POST'])
 def load_recent_download():
     """Yerelde İndirilenler klasöründeki en güncel pazaryeri veya e-ticaret web sipariş dosyasını otomatik yükler."""
@@ -83,10 +93,11 @@ def load_recent_download():
 
     try:
         try:
+            orders = restore_scanned_status_from_archive(orders)
             save_active_orders_file(selected_name, orders)
             save_orders_to_cloud(selected_name, orders)
-        except Exception:
-            pass
+        except Exception as e:
+            print(f"[ArsivRestore/CloudSync] Hata: {e}")
         return jsonify({
             'status': 'success',
             'filename': selected_name,
@@ -96,6 +107,7 @@ def load_recent_download():
     except Exception as e:
         return jsonify({'status': 'error', 'message': f'Dosya işlenirken hata: {str(e)}'}), 500
 
+@app.route('/api/arsiv/upload-orders', methods=['POST'])
 @app.route('/api/upload-orders', methods=['POST'])
 def upload_orders():
     # Coklu Excel yukleme destegi (files veya file listesi)
@@ -153,6 +165,7 @@ def upload_orders():
             summary_name = f"{len(file_names)} Dosya ({names_summary})"
 
         try:
+            merged_orders = restore_scanned_status_from_archive(merged_orders)
             save_active_orders_file(summary_name, merged_orders)
             save_orders_to_cloud(summary_name, merged_orders)
         except Exception as e:
@@ -175,6 +188,7 @@ def upload_orders():
                 except Exception:
                     pass
 
+@app.route('/api/arsiv/record', methods=['POST'])
 @app.route('/api/record', methods=['POST'])
 def record_barcode():
     data = request.get_json() or {}
@@ -220,6 +234,7 @@ def record_barcode():
         }
     })
 
+@app.route('/api/arsiv/check-duplicate', methods=['GET'])
 @app.route('/api/check-duplicate', methods=['GET'])
 def check_dup():
     barcode = request.args.get('barcode', '').strip()
@@ -229,6 +244,7 @@ def check_dup():
         'duplicate_info': dup_info
     })
 
+@app.route('/api/arsiv/search', methods=['GET'])
 @app.route('/api/search', methods=['GET'])
 def search():
     query = request.args.get('q', '').strip()
@@ -242,10 +258,12 @@ def search():
         'records': records
     })
 
+@app.route('/api/arsiv/stats', methods=['GET'])
 @app.route('/api/stats', methods=['GET'])
 def api_stats():
     return jsonify(get_stats())
 
+@app.route('/api/arsiv/export-excel', methods=['GET'])
 @app.route('/api/export-excel', methods=['GET'])
 def export_excel():
     query = request.args.get('q', '').strip()
@@ -267,6 +285,7 @@ def export_excel():
         mimetype='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
 
+@app.route('/api/arsiv/proof/<int:record_id>', methods=['GET'])
 @app.route('/api/proof/<int:record_id>', methods=['GET'])
 def get_proof(record_id):
     record = get_record_by_id(record_id)
@@ -276,6 +295,7 @@ def get_proof(record_id):
 
 
 
+@app.route('/api/arsiv/delete-record/<int:record_id>', methods=['POST', 'DELETE'])
 @app.route('/api/delete-record/<int:record_id>', methods=['POST', 'DELETE'])
 def delete_record_route(record_id):
     success, msg = delete_record_by_id(record_id)
@@ -291,7 +311,9 @@ def delete_record_route(record_id):
         }
     })
 
+@app.route('/api/arsiv/delete-record-by-barcode', methods=['POST'])
 @app.route('/api/delete-record-by-barcode', methods=['POST'])
+@app.route('/api/arsiv/remove-barcode', methods=['POST'])
 @app.route('/api/remove-barcode', methods=['POST'])
 def remove_barcode_route():
     data = request.get_json() or {}
@@ -318,6 +340,7 @@ def remove_barcode_route():
         }
     })
 
+@app.route('/api/arsiv/update-record/<int:record_id>', methods=['POST', 'PUT'])
 @app.route('/api/update-record/<int:record_id>', methods=['POST', 'PUT'])
 def update_record_route(record_id):
     data = request.get_json() or {}
@@ -331,6 +354,7 @@ def update_record_route(record_id):
         'record': rec
     })
 
+@app.route('/api/arsiv/update-barcode', methods=['POST'])
 @app.route('/api/update-barcode', methods=['POST'])
 def update_barcode_route():
     data = request.get_json() or {}
@@ -350,6 +374,7 @@ def update_barcode_route():
     success, msg = update_record_by_barcode(old_sn, new_sn, kargo_barkodu=kargo_barkodu, siparis_no=siparis_no)
     return jsonify({'status': 'success', 'message': msg})
 
+@app.route('/api/arsiv/get-current-orders', methods=['GET'])
 @app.route('/api/get-current-orders', methods=['GET'])
 def get_current_orders():
     data = get_orders_from_cloud() or get_active_orders_file()
@@ -363,6 +388,7 @@ def get_current_orders():
         })
     return jsonify({'status': 'empty', 'message': 'Kayitli aktif siparis bulunmuyor', 'orders': []})
 
+@app.route('/api/arsiv/clear-current-orders', methods=['POST'])
 @app.route('/api/clear-current-orders', methods=['POST'])
 def clear_current_orders():
     clear_active_orders_file()
@@ -374,6 +400,25 @@ def clear_current_orders():
 
 def open_browser():
     webbrowser.open(f'http://127.0.0.1:{PORT}')
+
+
+@app.route('/api/arsiv/sync-cloud', methods=['POST'])
+@app.route('/api/sync-cloud', methods=['POST'])
+def sync_cloud():
+    """Tüm cihazlarda arşiv kayıtlarını ve aktif siparişleri anlık olarak GitHub bulutla eşitler."""
+    try:
+        res = sync_db_with_cloud_archive()
+        cloud_orders = get_orders_from_cloud(force_refresh=True)
+        stats = get_stats()
+        return jsonify({
+            'status': 'success',
+            'message': 'Bulut arşiv senkronizasyonu tamamlandı',
+            'sync_result': res,
+            'active_orders': cloud_orders,
+            'stats': stats
+        })
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': f'Bulut senkronizasyon hatası: {str(e)}'}), 500
 
 if __name__ == '__main__':
     threading.Timer(1.2, open_browser).start()

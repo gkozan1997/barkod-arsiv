@@ -192,7 +192,7 @@ async function fetchServerPersistedOrders(silent = false) {
         return false;
     }
     try {
-        const res = await fetch('/api/get-current-orders?t=' + Date.now());
+        const res = await fetch('/api/arsiv/get-current-orders?t=' + Date.now());
         const data = await res.json();
         if (data && data.status === 'success' && Array.isArray(data.orders) && data.orders.length > 0) {
             loadedOrders = data.orders;
@@ -221,15 +221,57 @@ async function fetchServerPersistedOrders(silent = false) {
     return false;
 }
 
-window.syncOrdersNow = async function() {
+window.triggerManualCloudSync = async function() {
     const btn = document.getElementById('btnSyncCloud');
-    if (btn) btn.textContent = 'Eşitleniyor...';
-    await fetchServerPersistedOrders();
-    if (btn) btn.textContent = '🔄 Bulut Eşitle';
-    const alertBox = document.getElementById('orderScanAlert');
-    showAlert(alertBox, 'success', `☁️ Bulut senkronizasyonu tamamlandı: ${loadedOrders.length} paket aktif.`);
-    playSuccessBeep();
+    const icon = document.getElementById('syncCloudIcon');
+    const txt = document.getElementById('syncCloudText');
+    if (btn) btn.disabled = true;
+    if (icon) icon.textContent = '⏳';
+    if (txt) txt.textContent = 'Eşitleniyor...';
+
+    try {
+        const syncUrl = window.location.pathname.startsWith('/arsiv') || window.location.pathname.startsWith('/barkod_arsiv')
+            ? '/api/arsiv/sync-cloud'
+            : (window.location.port === '5004' ? '/api/sync-cloud' : '/api/arsiv/sync-cloud');
+
+        const res = await fetch(syncUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        const data = await res.json();
+
+        // Aktif siparişleri de buluttan tazele
+        await fetchServerPersistedOrders(false);
+
+        // Güncel istatistikleri ve arama tablosunu tazele
+        if (typeof loadStats === 'function') loadStats();
+        if (typeof performArchiveSearch === 'function') performArchiveSearch();
+
+        if (icon) icon.textContent = '✅';
+        if (txt) txt.textContent = 'Senkronize';
+
+        const alertBox = document.getElementById('orderScanAlert');
+        const count = data?.sync_result?.total_records || data?.stats?.toplam_kayit || loadedOrders.length;
+        showAlert(alertBox, 'success', `☁️ Bulut arşiv ve cihazlar eşitlendi (${count} arşiv kaydı, ${loadedOrders.length} paket).`);
+        playSuccessBeep();
+
+        setTimeout(() => {
+            if (icon) icon.textContent = '☁️';
+            if (txt) txt.textContent = 'Bulutla Eşitle';
+            if (btn) btn.disabled = false;
+        }, 2000);
+    } catch (e) {
+        console.error('Senkronizasyon hatası:', e);
+        if (icon) icon.textContent = '⚠️';
+        if (txt) txt.textContent = 'Hata';
+        if (btn) btn.disabled = false;
+        setTimeout(() => {
+            if (icon) icon.textContent = '☁️';
+            if (txt) txt.textContent = 'Bulutla Eşitle';
+        }, 3000);
+    }
 };
+window.syncOrdersNow = window.triggerManualCloudSync;
 
 window.clearLoadedOrders = async function() {
     if (!confirm('Yüklü sipariş listesini tamamen temizlemek istediğinize emin misiniz?')) return;
@@ -239,7 +281,7 @@ window.clearLoadedOrders = async function() {
     localStorage.removeItem(ORDERS_STORAGE_KEY);
     localStorage.removeItem(ORDERS_META_KEY);
     try {
-        await fetch('/api/clear-current-orders', { method: 'POST' });
+        await fetch('/api/arsiv/clear-current-orders', { method: 'POST' });
     } catch (e) {}
     updateOrderUIElements('', 0);
     renderOrderCards();
@@ -379,8 +421,8 @@ if (document.readyState === 'loading') {
 // 1. TAB GEÇİŞLERİ
 // --------------------------------------------------------------
 function initTabs() {
-    const tabs = document.querySelectorAll('.nav-tab');
-    const panes = document.querySelectorAll('.tab-pane');
+    const tabs = document.querySelectorAll('#view-arsiv .nav-tab');
+    const panes = document.querySelectorAll('#view-arsiv .tab-pane');
 
     tabs.forEach(tab => {
         tab.addEventListener('click', (e) => {
@@ -471,7 +513,7 @@ function initExcelUpload() {
             const orig = recentBtn.textContent;
             recentBtn.textContent = 'Yükleniyor...';
             try {
-                const response = await fetch('/api/load-recent-download', { method: 'POST' });
+                const response = await fetch('/api/arsiv/load-recent-download', { method: 'POST' });
                 const res = await response.json();
                 if (res.status === 'success') {
                     loadedOrders = res.orders || [];
@@ -481,7 +523,12 @@ function initExcelUpload() {
                     renderOrderCards();
                     resetToWaitingState();
                     const alertBox = document.getElementById('orderScanAlert');
-                    showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi ve kaydedildi! Kolideki KARGO BARKODUNU okutun.`);
+                    const restoredCount = loadedOrders.filter(o => o.tamamlandi).length;
+                    let successMsg = `📦 ${loadedOrders.length} Paket yüklendi ve kaydedildi!`;
+                    if (restoredCount > 0) {
+                        successMsg += ` (${restoredCount} paket geçmiş arşivden tamamlandı olarak geri yüklendi)`;
+                    }
+                    showAlert(alertBox, 'success', `${successMsg} Kolideki KARGO BARKODUNU okutun.`);
                     playSuccessBeep();
                 } else {
                     alert('Hata: ' + (res.message || 'Dosya okunamadı. Lütfen "Dosya Seç" ile yükleyin.'));
@@ -533,7 +580,7 @@ async function handleFileUpload(filesInput) {
     }
 
     try {
-        const response = await fetch('/api/upload-orders', {
+        const response = await fetch('/api/arsiv/upload-orders', {
             method: 'POST',
             body: formData
         });
@@ -559,7 +606,12 @@ async function handleFileUpload(filesInput) {
 
             const alertBox = document.getElementById('orderScanAlert');
             const summaryBadge = validFiles.length > 1 ? `${validFiles.length} Dosya Birleştirildi` : loadedFileName;
-            showAlert(alertBox, 'success', `📦 ${loadedOrders.length} Paket yüklendi (${summaryBadge})! Kolideki kargo barkodunu veya sipariş numarasını okutun.`);
+            const restoredCount = loadedOrders.filter(o => o.tamamlandi).length;
+            let successMsg = `📦 ${loadedOrders.length} Paket yüklendi (${summaryBadge})!`;
+            if (restoredCount > 0) {
+                successMsg += ` (${restoredCount} paket geçmiş arşivden tamamlandı olarak geri yüklendi)`;
+            }
+            showAlert(alertBox, 'success', `${successMsg} Kolideki kargo barkodunu veya sipariş numarasını okutun.`);
             playSuccessBeep();
         } else {
             alert('Hata: ' + (res.message || 'Dosyalar okunamadı veya sipariş bulunamadı'));
@@ -827,7 +879,7 @@ async function processProductSerialScan(barcode) {
     }
 
     try {
-        const response = await fetch('/api/record', {
+        const response = await fetch('/api/arsiv/record', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1142,7 +1194,7 @@ async function executeFreeScan() {
     const marketplace = document.getElementById('freeMarketplace')?.value || 'Diğer';
 
     try {
-        const response = await fetch('/api/record', {
+        const response = await fetch('/api/arsiv/record', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1220,13 +1272,13 @@ function initSearchAndArchive() {
             const q = document.getElementById('archiveSearchInput')?.value.trim() || '';
             const start = document.getElementById('archiveStartDate')?.value || '';
             const end = document.getElementById('archiveEndDate')?.value || '';
-            window.location.href = `/api/export-excel?q=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`;
+            window.location.href = `/api/arsiv/export-excel?q=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`;
         });
     }
 
     if (fullBackupBtn) {
         fullBackupBtn.addEventListener('click', () => {
-            window.location.href = '/api/export-excel';
+            window.location.href = '/api/arsiv/export-excel';
         });
     }
 
@@ -1253,7 +1305,7 @@ async function executeArchiveSearch() {
     if (tbody) tbody.innerHTML = '<tr><td colspan="8" class="text-center">Aranıyor...</td></tr>';
 
     try {
-        const response = await fetch(`/api/search?q=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`);
+        const response = await fetch(`/api/arsiv/search?q=${encodeURIComponent(q)}&start_date=${start}&end_date=${end}`);
         const res = await response.json();
 
         if (res.status === 'success') {
@@ -1293,7 +1345,7 @@ async function executeArchiveSearch() {
 
 window.openProofModal = async function(recordId) {
     try {
-        const response = await fetch(`/api/proof/${recordId}`);
+        const response = await fetch(`/api/arsiv/proof/${recordId}`);
         const res = await response.json();
 
         if (res.status === 'success') {
@@ -1595,7 +1647,7 @@ async function onCameraBarcodeDecoded(decodedText) {
 
             if (statusText) statusText.textContent = `Ürün kaydediliyor: ${cleanCode}...`;
 
-            const response = await fetch('/api/record', {
+            const response = await fetch('/api/arsiv/record', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -1728,7 +1780,7 @@ function updateHeaderStats(stats) {
 
 async function refreshDashboardStats() {
     try {
-        const response = await fetch('/api/stats');
+        const response = await fetch('/api/arsiv/stats');
         const data = await response.json();
         updateHeaderStats(data);
     } catch (e) {
@@ -1740,28 +1792,25 @@ async function refreshDashboardStats() {
 // ==============================================================
 // GLOBAL WINDOW ERİŞİMLERİ (DOĞRUDAN HTML VE BUTON TIKLAMALARI İÇİN)
 // ==============================================================
-window.switchTab = function(targetId) {
+window.switchArsivTab = function(targetId) {
     if (!targetId) return;
-    const tabs = document.querySelectorAll('.nav-tab');
-    const panes = document.querySelectorAll('.tab-pane');
-
-    tabs.forEach(t => {
+    document.querySelectorAll('#view-arsiv .nav-tab').forEach(t => {
         if (t.dataset.tab === targetId) t.classList.add('active');
         else t.classList.remove('active');
     });
-
-    panes.forEach(p => {
+    document.querySelectorAll('#view-arsiv .tab-pane').forEach(p => {
         if (p.id === targetId) p.classList.add('active');
         else p.classList.remove('active');
     });
-
     if (targetId === 'tab-siparis') {
         const inp = document.getElementById('activeScanInput');
         if (inp) inp.focus();
     } else if (targetId === 'tab-paketler') {
         const f = document.getElementById('orderFilterInput');
         if (f) f.focus();
-        renderOrderCards(f ? f.value.trim().toLowerCase() : '');
+        if (typeof renderOrderCards === 'function') {
+            renderOrderCards(f ? f.value.trim().toLowerCase() : '');
+        }
     } else if (targetId === 'tab-serbest') {
         const inp = document.getElementById('freeScanInput');
         if (inp) inp.focus();
@@ -1770,6 +1819,8 @@ window.switchTab = function(targetId) {
         if (inp) inp.focus();
     }
 };
+window.switchTab = window.switchArsivTab;
+
 
 window.handleFileInputChange = function(files) {
     if (files && files.length > 0) {
@@ -1782,7 +1833,7 @@ window.loadRecentExcel = async function() {
     const orig = recentBtn ? recentBtn.textContent : '⚡ İndirilenler\'den Getir';
     if (recentBtn) recentBtn.textContent = 'Yükleniyor...';
     try {
-        const response = await fetch('/api/load-recent-download', { method: 'POST' });
+        const response = await fetch('/api/arsiv/load-recent-download', { method: 'POST' });
         const res = await response.json();
         if (res.status === 'success') {
             loadedOrders = res.orders || [];
@@ -1821,6 +1872,11 @@ window.resetToWaitingState = resetToWaitingState;
 window.updateCameraUIForStep = updateCameraUIForStep;
 
 
+window.initArsivModule = function() {
+    if (typeof initApp === 'function') initApp();
+};
+
+
 // --------------------------------------------------------------
 // YANLIŞ OKUTULAN BARKODU SİLME VE DÜZENLEME FONKSİYONLARI
 // --------------------------------------------------------------
@@ -1834,7 +1890,7 @@ async function deleteScannedSerial(itemIdx, serial) {
     if (!confirmed) return;
 
     try {
-        const response = await fetch('/api/remove-barcode', {
+        const response = await fetch('/api/arsiv/remove-barcode', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1885,7 +1941,7 @@ async function editScannedSerial(itemIdx, serial) {
     const cleanNew = newSerial.trim();
 
     try {
-        const response = await fetch('/api/update-barcode', {
+        const response = await fetch('/api/arsiv/update-barcode', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -1926,7 +1982,7 @@ async function deleteArchiveRecord(recordId, barcode) {
     if (!confirmed) return;
 
     try {
-        const response = await fetch(`/api/delete-record/${recordId}`, { method: 'POST' });
+        const response = await fetch(`/api/arsiv/delete-record/${recordId}`, { method: 'POST' });
         const res = await response.json();
         if (res.status === 'success') {
             alert('Kayıt başarıyla silindi.');
@@ -1942,7 +1998,7 @@ async function deleteArchiveRecord(recordId, barcode) {
 
 async function openEditRecordModal(recordId) {
     try {
-        const response = await fetch(`/api/proof/${recordId}`);
+        const response = await fetch(`/api/arsiv/proof/${recordId}`);
         const res = await response.json();
         if (res.status === 'success' && res.record) {
             const r = res.record;
@@ -1993,7 +2049,7 @@ async function saveRecordEdit() {
     };
 
     try {
-        const response = await fetch(`/api/update-record/${recordId}`, {
+        const response = await fetch(`/api/arsiv/update-record/${recordId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
