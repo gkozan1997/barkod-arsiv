@@ -474,5 +474,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 36,
+    "kargo_barkodu": "1100125",
+    "siparis_no": "1100125",
+    "musteri_adi": "Ömer Parim",
+    "urun_adi": "Beko BMD 200 S Mikrodalga Fırın",
+    "barkod_seri_no": "8911151200261003840601",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-12 12:11:40",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
