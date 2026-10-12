@@ -460,5 +460,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 35,
+    "kargo_barkodu": "7330037922284086",
+    "siparis_no": "11699249358",
+    "musteri_adi": "Fevziye yılmaz",
+    "urun_adi": "Beko BKS 5564 Toz Torbasız Süpürge",
+    "barkod_seri_no": "8813101200261160740801",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:11:32",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
