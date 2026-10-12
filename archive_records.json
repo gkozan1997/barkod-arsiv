@@ -446,5 +446,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 34,
+    "kargo_barkodu": "1100314",
+    "siparis_no": "1100314",
+    "musteri_adi": "Fatma KARAKAYA",
+    "urun_adi": "Beko FK 5310 S Filtre Kahve Makinesi",
+    "barkod_seri_no": "9212391200241015900501",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-12 12:11:16",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
