@@ -586,5 +586,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 44,
+    "kargo_barkodu": "1100531",
+    "siparis_no": "1100531",
+    "musteri_adi": "Sedat Balta",
+    "urun_adi": "Beko BMD 200 S Mikrodalga Fırın",
+    "barkod_seri_no": "8911151200261001280401",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-12 12:12:32",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
