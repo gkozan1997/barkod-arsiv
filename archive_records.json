@@ -488,5 +488,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 37,
+    "kargo_barkodu": "1100230",
+    "siparis_no": "1100230",
+    "musteri_adi": "Mehmet Nuri Gömük",
+    "urun_adi": "Beko BMD 200 G Mikrodalga Fırın",
+    "barkod_seri_no": "9206331200261006290701",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-12 12:11:47",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
