@@ -530,5 +530,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "durum": "Gecerli"
+  },
+  {
+    "id": 40,
+    "kargo_barkodu": "7330037931277802",
+    "siparis_no": "11700624717",
+    "musteri_adi": "eda Alkım",
+    "urun_adi": "Beko CFM 8518 I Öğütücülü Filtre Kahve Makinesi",
+    "barkod_seri_no": "8919011200251005581201",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:12:04",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
