@@ -558,5 +558,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 42,
+    "kargo_barkodu": "7330037936934687",
+    "siparis_no": "11701220615",
+    "musteri_adi": "Nehir karagöz",
+    "urun_adi": "Beko 31655 Av Ayaklı Vantilatör [Renk:BEYAZ]",
+    "barkod_seri_no": "9211981200261093450501",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:12:17",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
