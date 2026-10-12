@@ -180,5 +180,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 15,
+    "kargo_barkodu": "62755280001811",
+    "siparis_no": "4483623034",
+    "musteri_adi": "Sinan Enes Çelik",
+    "urun_adi": "Lenovo 1 Yıl Garanti Uzatma Paketi - 5WS1L83874",
+    "barkod_seri_no": "9225361600236284130801",
+    "pazaryeri": "HepsiBurada",
+    "kayit_tarihi": "2026-10-12 09:48:15",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
