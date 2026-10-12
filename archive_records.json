@@ -404,5 +404,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 31,
+    "kargo_barkodu": "7330037937159799",
+    "siparis_no": "11701243851",
+    "musteri_adi": "İlknur Yürektürk",
+    "urun_adi": "Beko FR 8374 FitFry SteamPro Fritöz [Renk:SİYAH]",
+    "barkod_seri_no": "8914811200231003441201",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:10:45",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
