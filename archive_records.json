@@ -194,5 +194,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 16,
+    "kargo_barkodu": "7330037936034646",
+    "siparis_no": "11701126992",
+    "musteri_adi": "Adnan Nar Nar",
+    "urun_adi": "Lenovo Tab One ZAF00214TR 128 GB 8.7\" Tablet [Renk:Gri]",
+    "barkod_seri_no": "9248571600262816320601",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 10:14:24",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
