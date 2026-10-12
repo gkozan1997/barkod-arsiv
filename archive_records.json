@@ -110,5 +110,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 10,
+    "kargo_barkodu": "7330037934458154",
+    "siparis_no": "11700964512",
+    "musteri_adi": "Fasih Oral",
+    "urun_adi": "Lenovo IdeaPad Slim 3 15IRH10 83K10016TR i5-13420H 8 GB 512 GB SSD UHD Graphics 15.3\" W11H WUXGA Notebook",
+    "barkod_seri_no": "9243831600262905080701",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 09:45:58",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
