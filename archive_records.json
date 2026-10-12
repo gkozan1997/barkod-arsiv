@@ -124,5 +124,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 11,
+    "kargo_barkodu": "62755277366541",
+    "siparis_no": "4715585045",
+    "musteri_adi": "beytullah kara",
+    "urun_adi": "Lenovo IdeaPad Slim 3 15IRH10 83K10016TR i5-13420H 8 GB 512 GB SSD UHD Graphics 15.3\" W11H WUXGA Notebook [SSD Kapasitesi:512 GB, Ram (Sistem Belleği):8 GB]",
+    "barkod_seri_no": "9243831600262901830701",
+    "pazaryeri": "HepsiBurada",
+    "kayit_tarihi": "2026-10-12 09:46:06",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
