@@ -572,5 +572,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 43,
+    "kargo_barkodu": "7330037924672577",
+    "siparis_no": "11699634365",
+    "musteri_adi": "Ülkü Akgül",
+    "urun_adi": "Beko 31670 AV Vantilatör [Renk:SİYAH]",
+    "barkod_seri_no": "8892291200261019280201",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:12:24",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
