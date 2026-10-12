@@ -432,5 +432,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": true
+  },
+  {
+    "id": 33,
+    "kargo_barkodu": "7330037916873135",
+    "siparis_no": "11698497232",
+    "musteri_adi": "TERMAL TURİZM TİC LTD ŞTİ DİVAİSİB",
+    "urun_adi": "BK RHC 1800 Konvektör Isıtıcı [Renk:Siyah]",
+    "barkod_seri_no": "9212391200241003730501",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:11:04",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
