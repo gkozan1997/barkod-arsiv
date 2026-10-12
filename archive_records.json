@@ -96,5 +96,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 9,
+    "kargo_barkodu": "7330037937218571",
+    "siparis_no": "11701248633",
+    "musteri_adi": "Cüneyt ÖZTÜRK",
+    "urun_adi": "Lenovo Yoga Slim 7 14IMH9 83CV007NTR Ultra 5 125H 16 GB 512 GB SSD Arc Graphics 14\" WUXGA Notebook",
+    "barkod_seri_no": "9243511600258792230301",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 09:45:50",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
