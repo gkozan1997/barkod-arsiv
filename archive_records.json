@@ -544,5 +544,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 41,
+    "kargo_barkodu": "7330037923009008",
+    "siparis_no": "11699357797",
+    "musteri_adi": "Merve DAVAS",
+    "urun_adi": "Beko YM 8242 I Yoğurt Chef Probiyotik Yoğurt & Kefir Makinesi [Renk:GÜMÜŞ/SİYAH]",
+    "barkod_seri_no": "7462000200241043420801",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:12:11",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
