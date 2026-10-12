@@ -516,5 +516,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 39,
+    "kargo_barkodu": "1100027",
+    "siparis_no": "1100027",
+    "musteri_adi": "Muslu Atçalıoğlu",
+    "urun_adi": "Beko BMD 200 G Mikrodalga Fırın",
+    "barkod_seri_no": "86908425429098690842542909",
+    "pazaryeri": "Web Sitesi",
+    "kayit_tarihi": "2026-10-12 12:11:56",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "durum": "Gecerli"
   }
 ]
