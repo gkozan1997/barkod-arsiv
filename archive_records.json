@@ -236,5 +236,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 19,
+    "kargo_barkodu": "7250037921285454",
+    "siparis_no": "11699100477",
+    "musteri_adi": "Berhem Yaman",
+    "urun_adi": "Lenovo Tab One ZAF00214TR 128 GB 8.7\" Tablet [Renk:Gri]",
+    "barkod_seri_no": "9248571600262816290601",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 10:14:48",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
