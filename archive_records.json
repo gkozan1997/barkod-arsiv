@@ -600,5 +600,19 @@
     "okutma_yontemi": "El Terminali / Kargo Eşleme",
     "notlar": "",
     "is_duplicate": false
+  },
+  {
+    "id": 45,
+    "kargo_barkodu": "7330037925075551",
+    "siparis_no": "11699713938",
+    "musteri_adi": "Ufuk Soysal",
+    "urun_adi": "Beko VCS 20501 B Kablolu Elektrikli Dikey Süpürge [Renk:Siyah]",
+    "barkod_seri_no": "8690842774560",
+    "pazaryeri": "Trendyol",
+    "kayit_tarihi": "2026-10-12 12:12:40",
+    "kayit_gunu": "2026-10-12",
+    "okutma_yontemi": "El Terminali / Kargo Eşleme",
+    "notlar": "",
+    "is_duplicate": false
   }
 ]
